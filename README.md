@@ -29,7 +29,7 @@ python manage.py runserver
 ```
 .
 ├── manage.py         # Django's command-line entry point
-├── portal/           # Project-level config
+├── lu_sims/          # Project-level config
 │   ├── settings.py   # App list, database, middleware, etc.
 │   ├── urls.py        # Top-level URL routing
 │   ├── wsgi.py        # Sync production entry point
