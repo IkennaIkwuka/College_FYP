@@ -7,7 +7,7 @@ from django.urls import reverse_lazy
 from students.services import create_student_account
 
 from .decorators import admin_required
-from .forms import StudentAccountForm
+from .forms import ChangePasswordForm, StudentAccountForm
 
 
 @admin_required
@@ -42,6 +42,7 @@ def dashboard(request):
 
 class ForcedPasswordChangeView(auth_views.PasswordChangeView):
     template_name = "accounts/change_password.html"
+    form_class = ChangePasswordForm
     success_url = reverse_lazy("accounts:dashboard")
 
     def form_valid(self, form):

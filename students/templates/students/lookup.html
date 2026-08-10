@@ -4,44 +4,54 @@
 
 {% block content %}
     <h1>Student Lookup</h1>
-    <form method="get">
-        <input type="text" name="matric_number" value="{{ matric_number }}" placeholder="Matric number">
-        <button type="submit">Search</button>
+    <form method="get" class="mb-4">
+        <div class="input-group" style="max-width: 400px;">
+            <input type="text" name="matric_number" value="{{ matric_number }}" placeholder="Matric number" class="form-control">
+            <button type="submit" class="btn btn-primary">Search</button>
+        </div>
     </form>
 
     {% if profile %}
-        <h2>{{ profile.user.get_full_name|default:profile.user.username }}</h2>
-        <ul>
-            <li>Matric number: {{ profile.matric_number }}</li>
-            <li>Email: {{ profile.user.email }}</li>
-            <li>Department: {{ profile.department }}</li>
-            <li>Level: {{ profile.get_level_display }}</li>
-            <li>Date of birth: {{ profile.date_of_birth|default:"-" }}</li>
-            <li>Gender: {{ profile.get_gender_display|default:"-" }}</li>
-            <li>Phone number: {{ profile.phone_number|default:"-" }}</li>
-            <li>Address: {{ profile.address|default:"-" }}</li>
-        </ul>
+        <div class="card">
+            <div class="card-body">
+                <h2 class="h4">{{ profile.user.get_full_name|default:profile.user.username }}</h2>
+                <table class="table table-sm w-auto">
+                    <tr><th>Matric number</th><td>{{ profile.matric_number }}</td></tr>
+                    <tr><th>Email</th><td>{{ profile.user.email }}</td></tr>
+                    <tr><th>Department</th><td>{{ profile.department }}</td></tr>
+                    <tr><th>Level</th><td>{{ profile.get_level_display }}</td></tr>
+                    <tr><th>Date of birth</th><td>{{ profile.date_of_birth|default:"-" }}</td></tr>
+                    <tr><th>Gender</th><td>{{ profile.get_gender_display|default:"-" }}</td></tr>
+                    <tr><th>Phone number</th><td>{{ profile.phone_number|default:"-" }}</td></tr>
+                    <tr><th>Address</th><td>{{ profile.address|default:"-" }}</td></tr>
+                </table>
 
-        <h3>Course Registrations</h3>
-        {% if registrations %}
-            <table>
-                <tr>
-                    <th>Course</th>
-                    <th>Session</th>
-                    <th>Semester</th>
-                    <th>Registered At</th>
-                </tr>
-                {% for registration in registrations %}
-                    <tr>
-                        <td>{{ registration.course }}</td>
-                        <td>{{ registration.session }}</td>
-                        <td>{{ registration.get_semester_display }}</td>
-                        <td>{{ registration.registered_at }}</td>
-                    </tr>
-                {% endfor %}
-            </table>
-        {% else %}
-            <p>No course registrations yet.</p>
-        {% endif %}
+                <h3 class="h5 mt-4">Course Registrations</h3>
+                {% if registrations %}
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>Course</th>
+                                <th>Session</th>
+                                <th>Semester</th>
+                                <th>Registered At</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for registration in registrations %}
+                                <tr>
+                                    <td>{{ registration.course }}</td>
+                                    <td>{{ registration.session }}</td>
+                                    <td>{{ registration.get_semester_display }}</td>
+                                    <td>{{ registration.registered_at }}</td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                {% else %}
+                    <p class="text-muted">No course registrations yet.</p>
+                {% endif %}
+            </div>
+        </div>
     {% endif %}
 {% endblock %}
