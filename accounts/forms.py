@@ -1,5 +1,5 @@
 from django import forms
-from django.contrib.auth.forms import AuthenticationForm, PasswordChangeForm
+from django.contrib.auth.forms import AuthenticationForm, SetPasswordForm
 from students.models import LEVEL_CHOICES, Department, StudentProfile
 
 from .models import User
@@ -20,7 +20,16 @@ class LoginForm(BootstrapFormMixin, AuthenticationForm):
     pass
 
 
-class ChangePasswordForm(BootstrapFormMixin, PasswordChangeForm):
+class ChangePasswordForm(BootstrapFormMixin, SetPasswordForm):
+    """Sets a new password without asking for the old one.
+
+    SetPasswordForm is what Django normally uses for password-reset-by-email links,
+    where the user proved who they are via the email token instead of a password -
+    it fits here too, since a first-time login already proves who they are via the
+    default password, and asking them to also type that default password back in
+    as "confirm your old password" would just be an extra step for no real benefit.
+    """
+
     pass
 
 

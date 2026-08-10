@@ -51,10 +51,10 @@ class ForcedPasswordChangeTests(TestCase):
         self.assertRedirects(response, reverse("accounts:change_password"))
 
     def test_flag_clears_after_change(self):
+        # No old_password field - first-time change deliberately doesn't ask for it.
         self.client.post(
             reverse("accounts:change_password"),
             {
-                "old_password": settings.DEFAULT_STUDENT_PASSWORD,
                 "new_password1": "N3wPassw0rd!",
                 "new_password2": "N3wPassw0rd!",
             },
@@ -62,6 +62,17 @@ class ForcedPasswordChangeTests(TestCase):
         self.profile.user.refresh_from_db()
         self.assertFalse(self.profile.user.must_change_password)
         self.assertEqual(self.client.get(reverse("accounts:dashboard")).status_code, 200)
+
+    def test_weak_password_rejected(self):
+        # all-lowercase, no digit or symbol - fails ComplexityValidator even though
+        # it clears the length requirement on its own.
+        response = self.client.post(
+            reverse("accounts:change_password"),
+            {"new_password1": "weakpassword", "new_password2": "weakpassword"},
+        )
+        self.profile.user.refresh_from_db()
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(self.profile.user.must_change_password)
 
 
 class AdminOnlyViewsTests(TestCase):

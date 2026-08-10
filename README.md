@@ -1,4 +1,4 @@
-# College_FYP — UniPortal
+# College_FYP — LU-SIMS
 
 Final year project for my Computer Science degree at Legacy University, Okija, Anambra State — a Role-Based Access Control (RBAC) information management portal built with Django.
 
