@@ -4,7 +4,7 @@
 
 {% block content %}
     <h1>Add Student</h1>
-    <p class="text-muted">The student's initial password will be their own matric number. They'll be required to change it on first login.</p>
+    <p class="text-muted">The student's initial password will be "{{ default_password }}". They'll be required to change it on first login.</p>
     <div class="card">
         <div class="card-body">
             <form method="post">

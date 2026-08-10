@@ -54,6 +54,10 @@ LOGIN_URL = 'accounts:login'
 LOGIN_REDIRECT_URL = 'accounts:dashboard'
 LOGOUT_REDIRECT_URL = 'accounts:login'
 
+# Initial password for admin-created/bulk-imported student accounts (forced change on first
+# login). Bump this every academic year, e.g. 'lu2027' for the 2027 intake.
+DEFAULT_STUDENT_PASSWORD = 'lu2026'
+
 MESSAGE_TAGS = {
     messages.ERROR: 'danger',
 }

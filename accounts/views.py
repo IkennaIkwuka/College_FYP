@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth import views as auth_views
 from django.contrib.auth.decorators import login_required
@@ -26,13 +27,17 @@ def register(request):
             messages.success(
                 request,
                 f"Student {form.cleaned_data['matric_number']} added. "
-                "Their initial password is their matric number.",
+                f"Their initial password is \"{settings.DEFAULT_STUDENT_PASSWORD}\".",
             )
             return redirect("accounts:register")
     else:
         form = StudentAccountForm()
 
-    return render(request, "accounts/register.html", {"form": form})
+    return render(
+        request,
+        "accounts/register.html",
+        {"form": form, "default_password": settings.DEFAULT_STUDENT_PASSWORD},
+    )
 
 
 @login_required

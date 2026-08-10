@@ -1,4 +1,5 @@
 from accounts.models import STUDENT_GROUP, User
+from django.conf import settings
 from django.contrib.auth.models import Group
 
 from .models import StudentProfile
@@ -6,6 +7,9 @@ from .models import StudentProfile
 
 def create_student_account(*, matric_number, first_name, last_name, email, department, level, **optional_fields):
     matric_number = matric_number.strip().upper()
+    # Django's username field rejects "/", which real matric numbers contain (e.g.
+    # 2023/CSC/030), so this is just an internal ID - actual student login goes through
+    # accounts.backends.MatricNumberOrUsernameBackend matching on the matric number itself.
     username = matric_number.replace("/", "")
 
     user = User.objects.create_user(
@@ -13,7 +17,7 @@ def create_student_account(*, matric_number, first_name, last_name, email, depar
         email=email,
         first_name=first_name,
         last_name=last_name,
-        password=matric_number,
+        password=settings.DEFAULT_STUDENT_PASSWORD,
     )
     user.must_change_password = True
     user.save(update_fields=["must_change_password"])

@@ -50,6 +50,10 @@ class CourseRegistration(models.Model):
         ordering = ["-session", "semester", "student"]
 
     def clean(self):
+        # clean() isn't called automatically on save() - Django only runs it when
+        # something calls full_clean() first (ModelForms/the admin do this for you).
+        # It's still worth having here as the one place this rule is enforced,
+        # rather than repeating the same check in every view that creates a registration.
         if self.course_id and self.student_id:
             if self.course.department_id != self.student.department_id:
                 raise ValidationError("Course department must match the student's department.")

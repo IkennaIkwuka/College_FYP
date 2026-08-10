@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.contrib.auth.models import Group
 from django.test import TestCase
 from django.urls import reverse
@@ -20,11 +21,15 @@ class MatricNumberLoginTests(TestCase):
         )
 
     def test_login_with_matric_number(self):
-        self.assertTrue(self.client.login(username="2023/CSC/030", password="2023/CSC/030"))
+        self.assertTrue(
+            self.client.login(username="2023/CSC/030", password=settings.DEFAULT_STUDENT_PASSWORD)
+        )
 
     def test_login_with_username_still_works(self):
         self.assertTrue(
-            self.client.login(username=self.profile.user.username, password="2023/CSC/030")
+            self.client.login(
+                username=self.profile.user.username, password=settings.DEFAULT_STUDENT_PASSWORD
+            )
         )
 
 
@@ -39,7 +44,7 @@ class ForcedPasswordChangeTests(TestCase):
             department=self.department,
             level=300,
         )
-        self.client.login(username="2023/CSC/031", password="2023/CSC/031")
+        self.client.login(username="2023/CSC/031", password=settings.DEFAULT_STUDENT_PASSWORD)
 
     def test_redirected_to_change_password(self):
         response = self.client.get(reverse("accounts:dashboard"))
@@ -49,7 +54,7 @@ class ForcedPasswordChangeTests(TestCase):
         self.client.post(
             reverse("accounts:change_password"),
             {
-                "old_password": "2023/CSC/031",
+                "old_password": settings.DEFAULT_STUDENT_PASSWORD,
                 "new_password1": "N3wPassw0rd!",
                 "new_password2": "N3wPassw0rd!",
             },
@@ -81,7 +86,7 @@ class AdminOnlyViewsTests(TestCase):
         self.student_profile.user.save(update_fields=["must_change_password"])
 
     def test_non_admin_forbidden(self):
-        self.client.login(username="2023/CSC/032", password="2023/CSC/032")
+        self.client.login(username="2023/CSC/032", password=settings.DEFAULT_STUDENT_PASSWORD)
         for name in ["accounts:register", "students:bulk_import", "students:lookup"]:
             self.assertEqual(self.client.get(reverse(name)).status_code, 403, name)
 

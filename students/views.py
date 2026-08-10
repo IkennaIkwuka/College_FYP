@@ -2,6 +2,7 @@ import csv
 import io
 
 from accounts.decorators import admin_required
+from django.conf import settings
 from django.contrib import messages
 from django.db import transaction
 from django.shortcuts import redirect, render
@@ -16,6 +17,12 @@ VALID_LEVELS = {str(level) for level, _ in LEVEL_CHOICES}
 
 
 def _validate_row(row, seen_matrics, seen_emails):
+    """Check one CSV row for problems without creating anything yet.
+
+    seen_matrics/seen_emails are shared across every row in the file (passed in
+    by the caller), so this also catches two rows in the SAME upload trying to
+    use the same matric number or email - not just clashes with existing students.
+    """
     errors = []
 
     matric_number = (row.get("matric_number") or "").strip().upper()
@@ -73,14 +80,22 @@ def bulk_import(request):
                 errors = []
                 seen_matrics = set()
                 seen_emails = set()
+                # start=2 because row 1 of the file is the header row, so the first
+                # data row is what a spreadsheet program would call row 2.
                 for i, row in enumerate(rows, start=2):
                     for error in _validate_row(row, seen_matrics, seen_emails):
                         errors.append(f"Row {i}: {error}")
 
                 if errors:
+                    # Validate the WHOLE file before creating anything: if even one row
+                    # is bad, show every problem at once and create nothing, rather than
+                    # partially importing and leaving the admin to guess what succeeded.
                     for error in errors:
                         messages.error(request, error)
                 else:
+                    # transaction.atomic() makes all these creates succeed or fail together -
+                    # if row 50 of 100 somehow raised an unexpected error, rows 1-49 would be
+                    # rolled back too instead of leaving a half-imported file.
                     with transaction.atomic():
                         for row in rows:
                             department = Department.objects.get(name__iexact=row["department"].strip())
@@ -103,7 +118,11 @@ def bulk_import(request):
     else:
         form = BulkImportForm()
 
-    return render(request, "students/bulk_import.html", {"form": form})
+    return render(
+        request,
+        "students/bulk_import.html",
+        {"form": form, "default_password": settings.DEFAULT_STUDENT_PASSWORD},
+    )
 
 
 @admin_required

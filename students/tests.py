@@ -1,4 +1,5 @@
 from accounts.models import ADMIN_GROUP, User
+from django.conf import settings
 from django.contrib.auth.models import Group
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase
@@ -35,7 +36,7 @@ class BulkImportTests(TestCase):
         self.assertEqual(StudentProfile.objects.count(), 2)
 
         student = StudentProfile.objects.get(matric_number="2023/CSC/001")
-        self.assertTrue(student.user.check_password("2023/CSC/001"))
+        self.assertTrue(student.user.check_password(settings.DEFAULT_STUDENT_PASSWORD))
         self.assertTrue(student.user.must_change_password)
         self.assertTrue(student.user.groups.filter(name="Student").exists())
 
