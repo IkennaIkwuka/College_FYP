@@ -1,0 +1,17 @@
+{% extends "accounts/base.html" %}
+
+{% block title %}Bulk Import Students - UniPortal{% endblock %}
+
+{% block content %}
+    <h1>Bulk Import Students</h1>
+    <p>
+        CSV must include columns: <code>matric_number, first_name, last_name, email, department, level</code>.
+        Optional columns: <code>date_of_birth, gender, phone_number, address</code>.
+        Every imported student's initial password is their own matric number.
+    </p>
+    <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button type="submit">Import</button>
+    </form>
+{% endblock %}

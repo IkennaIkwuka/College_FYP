@@ -1,26 +1,36 @@
-from django.contrib.auth import login
+from django.contrib import messages
+from django.contrib.auth import views as auth_views
 from django.contrib.auth.decorators import login_required
-from django.contrib.auth.models import Group
 from django.shortcuts import redirect, render
+from django.urls import reverse_lazy
 
-from .forms import RegistrationForm
-from .models import STUDENT_GROUP
+from students.services import create_student_account
+
+from .decorators import admin_required
+from .forms import StudentAccountForm
 
 
+@admin_required
 def register(request):
-    if request.user.is_authenticated:
-        return redirect("accounts:dashboard")
-
     if request.method == "POST":
-        form = RegistrationForm(request.POST)
+        form = StudentAccountForm(request.POST)
         if form.is_valid():
-            user = form.save()
-            student_group = Group.objects.get(name=STUDENT_GROUP)
-            user.groups.add(student_group)
-            login(request, user)
-            return redirect("accounts:dashboard")
+            create_student_account(
+                matric_number=form.cleaned_data["matric_number"],
+                first_name=form.cleaned_data["first_name"],
+                last_name=form.cleaned_data["last_name"],
+                email=form.cleaned_data["email"],
+                department=form.cleaned_data["department"],
+                level=form.cleaned_data["level"],
+            )
+            messages.success(
+                request,
+                f"Student {form.cleaned_data['matric_number']} added. "
+                "Their initial password is their matric number.",
+            )
+            return redirect("accounts:register")
     else:
-        form = RegistrationForm()
+        form = StudentAccountForm()
 
     return render(request, "accounts/register.html", {"form": form})
 
@@ -28,3 +38,15 @@ def register(request):
 @login_required
 def dashboard(request):
     return render(request, "accounts/dashboard.html")
+
+
+class ForcedPasswordChangeView(auth_views.PasswordChangeView):
+    template_name = "accounts/change_password.html"
+    success_url = reverse_lazy("accounts:dashboard")
+
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        self.request.user.must_change_password = False
+        self.request.user.save(update_fields=["must_change_password"])
+        messages.success(self.request, "Password changed.")
+        return response

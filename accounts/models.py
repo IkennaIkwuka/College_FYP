@@ -10,6 +10,7 @@ class User(AbstractUser):
     """Custom user model so role/permission logic isn't locked to Django's default auth.User."""
 
     email = models.EmailField(unique=True)
+    must_change_password = models.BooleanField(default=False)
 
     def has_role(self, group_name):
         return self.groups.filter(name=group_name).exists()

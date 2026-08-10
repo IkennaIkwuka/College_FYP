@@ -1,0 +1,47 @@
+{% extends "accounts/base.html" %}
+
+{% block title %}Student Lookup - UniPortal{% endblock %}
+
+{% block content %}
+    <h1>Student Lookup</h1>
+    <form method="get">
+        <input type="text" name="matric_number" value="{{ matric_number }}" placeholder="Matric number">
+        <button type="submit">Search</button>
+    </form>
+
+    {% if profile %}
+        <h2>{{ profile.user.get_full_name|default:profile.user.username }}</h2>
+        <ul>
+            <li>Matric number: {{ profile.matric_number }}</li>
+            <li>Email: {{ profile.user.email }}</li>
+            <li>Department: {{ profile.department }}</li>
+            <li>Level: {{ profile.get_level_display }}</li>
+            <li>Date of birth: {{ profile.date_of_birth|default:"-" }}</li>
+            <li>Gender: {{ profile.get_gender_display|default:"-" }}</li>
+            <li>Phone number: {{ profile.phone_number|default:"-" }}</li>
+            <li>Address: {{ profile.address|default:"-" }}</li>
+        </ul>
+
+        <h3>Course Registrations</h3>
+        {% if registrations %}
+            <table>
+                <tr>
+                    <th>Course</th>
+                    <th>Session</th>
+                    <th>Semester</th>
+                    <th>Registered At</th>
+                </tr>
+                {% for registration in registrations %}
+                    <tr>
+                        <td>{{ registration.course }}</td>
+                        <td>{{ registration.session }}</td>
+                        <td>{{ registration.get_semester_display }}</td>
+                        <td>{{ registration.registered_at }}</td>
+                    </tr>
+                {% endfor %}
+            </table>
+        {% else %}
+            <p>No course registrations yet.</p>
+        {% endif %}
+    {% endif %}
+{% endblock %}

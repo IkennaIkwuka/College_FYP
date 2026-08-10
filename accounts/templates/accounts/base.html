@@ -8,13 +8,17 @@
     <nav>
         {% if user.is_authenticated %}
             <span>Signed in as {{ user.username }}</span>
+            {% if user.is_admin %}
+                <a href="{% url 'accounts:register' %}">Add Student</a>
+                <a href="{% url 'students:bulk_import' %}">Bulk Import</a>
+                <a href="{% url 'students:lookup' %}">Student Lookup</a>
+            {% endif %}
             <form method="post" action="{% url 'accounts:logout' %}" style="display:inline">
                 {% csrf_token %}
                 <button type="submit">Log out</button>
             </form>
         {% else %}
             <a href="{% url 'accounts:login' %}">Log in</a>
-            <a href="{% url 'accounts:register' %}">Register</a>
         {% endif %}
     </nav>
     <main>
