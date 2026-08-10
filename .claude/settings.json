@@ -1,8 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "Bash(journalctl -k *)",
-      "Bash(dpkg -L *)"
-    ]
-  }
-}
