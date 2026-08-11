@@ -1,6 +1,7 @@
 from django.conf import settings
 from django.contrib import messages
 from django.shortcuts import redirect, render
+from students.models import LEVEL_CHOICES
 
 from accounts.decorators import student_required
 
@@ -41,10 +42,24 @@ def register(request):
     else:
         form = CourseSelectionForm(queryset=available_courses)
 
+    # Grouped by year for the template - one collapsible section per level, rather
+    # than one long flat checkbox list mixing every level together.
+    courses_by_level = [
+        (level, level // 100, [c for c in available_courses if c.level == level])
+        for level, _ in LEVEL_CHOICES
+    ]
+    courses_by_level = [group for group in courses_by_level if group[2]]
+
     return render(
         request,
         "courses/register.html",
-        {"form": form, "session": session, "semester": semester},
+        {
+            "form": form,
+            "session": session,
+            "semester": semester,
+            "courses_by_level": courses_by_level,
+            "current_level": profile.current_level,
+        },
     )
 
 
