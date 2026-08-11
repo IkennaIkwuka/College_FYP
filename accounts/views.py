@@ -61,7 +61,7 @@ class PortalLoginView(auth_views.LoginView):
 class ForcedPasswordChangeView(auth_views.PasswordChangeView):
     template_name = "accounts/change_password.html"
     form_class = ChangePasswordForm
-    success_url = reverse_lazy("accounts:dashboard")
+    success_url = reverse_lazy("dashboard")
 
     def form_valid(self, form):
         response = super().form_valid(form)

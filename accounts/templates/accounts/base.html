@@ -9,7 +9,7 @@
 <body class="bg-light">
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4">
         <div class="container">
-            <a class="navbar-brand" href="{% if user.is_authenticated %}{% url 'accounts:dashboard' %}{% else %}{% url 'accounts:login' %}{% endif %}">LU-SIMS</a>
+            <a class="navbar-brand" href="{% if user.is_authenticated %}{% url 'dashboard' %}{% else %}{% url 'login' %}{% endif %}">LU-SIMS</a>
             <div class="d-flex align-items-center flex-wrap">
                 {% if user.is_authenticated %}
                     <span class="navbar-text text-light me-3">Signed in as {{ user.username }}</span>
@@ -27,7 +27,7 @@
                         <button type="submit" class="btn btn-outline-light btn-sm">Log out</button>
                     </form>
                 {% else %}
-                    <a class="btn btn-outline-light btn-sm" href="{% url 'accounts:login' %}">Log in</a>
+                    <a class="btn btn-outline-light btn-sm" href="{% url 'login' %}">Log in</a>
                 {% endif %}
             </div>
         </div>

@@ -47,7 +47,7 @@ class ForcedPasswordChangeTests(TestCase):
         self.client.login(username="2023/CSC/031", password=settings.DEFAULT_STUDENT_PASSWORD)
 
     def test_redirected_to_change_password(self):
-        response = self.client.get(reverse("accounts:dashboard"))
+        response = self.client.get(reverse("dashboard"))
         self.assertRedirects(response, reverse("accounts:change_password"))
 
     def test_flag_clears_after_change(self):
@@ -61,7 +61,7 @@ class ForcedPasswordChangeTests(TestCase):
         )
         self.profile.user.refresh_from_db()
         self.assertFalse(self.profile.user.must_change_password)
-        self.assertEqual(self.client.get(reverse("accounts:dashboard")).status_code, 200)
+        self.assertEqual(self.client.get(reverse("dashboard")).status_code, 200)
 
     def test_weak_password_rejected(self):
         # all-lowercase, no digit or symbol - fails ComplexityValidator even though

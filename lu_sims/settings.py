@@ -50,9 +50,9 @@ AUTHENTICATION_BACKENDS = [
     'accounts.backends.MatricNumberOrUsernameBackend',
 ]
 
-LOGIN_URL = 'accounts:login'
-LOGIN_REDIRECT_URL = 'accounts:dashboard'
-LOGOUT_REDIRECT_URL = 'accounts:login'
+LOGIN_URL = 'login'
+LOGIN_REDIRECT_URL = 'dashboard'
+LOGOUT_REDIRECT_URL = 'login'
 
 # Initial password for admin-created/bulk-imported student accounts (forced change on first
 # login). Bump this every academic year, e.g. 'lu2027' for the 2027 intake.
