@@ -33,13 +33,17 @@ class RegisterViewTests(TestCase):
             code="CSC301", title="Algorithms", units=3,
             department=self.department, level=300, semester="first",
         )
+        self.carryover_course = Course.objects.create(
+            code="CSC201", title="Data Structures", units=3,
+            department=self.department, level=200, semester="first",
+        )
         self.wrong_department_course = Course.objects.create(
             code="PHY301", title="Mechanics", units=3,
             department=self.other_department, level=300, semester="first",
         )
-        self.wrong_level_course = Course.objects.create(
-            code="CSC201", title="Data Structures", units=3,
-            department=self.department, level=200, semester="first",
+        self.above_current_level_course = Course.objects.create(
+            code="CSC401", title="Distributed Systems", units=3,
+            department=self.department, level=400, semester="first",
         )
         self.wrong_semester_course = Course.objects.create(
             code="CSC302", title="Compilers", units=3,
@@ -48,30 +52,34 @@ class RegisterViewTests(TestCase):
 
         self.client.login(username=self.profile.user.username, password=settings.DEFAULT_STUDENT_PASSWORD)
 
-    def test_no_query_params_shows_semester_form(self):
+    def test_get_shows_course_list_directly(self):
         response = self.client.get(reverse("courses:register"))
-        self.assertTemplateUsed(response, "courses/select_semester.html")
+        self.assertTemplateUsed(response, "courses/register.html")
 
-    def test_valid_semester_shows_course_list(self):
-        response = self.client.get(reverse("courses:register"), {"semester": "first"})
-        self.assertTemplateUsed(response, "courses/select_courses.html")
-
-    def test_step_two_only_lists_matching_available_courses(self):
-        response = self.client.get(reverse("courses:register"), {"semester": "first"}, follow=True)
-        available = list(response.context["form"].fields["courses"].queryset)
-        self.assertEqual(available, [self.matching_course])
+    def test_lists_own_level_and_lower_levels_but_not_above(self):
+        response = self.client.get(reverse("courses:register"))
+        available = set(response.context["form"].fields["courses"].queryset)
+        self.assertEqual(available, {self.matching_course, self.carryover_course})
 
     def test_post_creates_registration(self):
-        url = f"{reverse('courses:register')}?semester=first"
-        response = self.client.post(url, {"courses": [self.matching_course.id]})
+        response = self.client.post(reverse("courses:register"), {"courses": [self.matching_course.id]})
         self.assertRedirects(response, reverse("courses:my_registrations"))
         self.assertTrue(
             CourseRegistration.objects.filter(
                 student=self.profile,
                 course=self.matching_course,
                 session=settings.CURRENT_SESSION,
-                semester="first",
+                semester=settings.CURRENT_SEMESTER,
             ).exists()
+        )
+
+    def test_can_actually_register_for_carryover_course(self):
+        # Proves the lower-level course isn't just shown but genuinely registerable -
+        # would have failed if CourseRegistration.clean() still required exact level equality.
+        response = self.client.post(reverse("courses:register"), {"courses": [self.carryover_course.id]})
+        self.assertRedirects(response, reverse("courses:my_registrations"))
+        self.assertTrue(
+            CourseRegistration.objects.filter(student=self.profile, course=self.carryover_course).exists()
         )
 
     def test_already_registered_course_excluded_from_available_list(self):
@@ -79,25 +87,23 @@ class RegisterViewTests(TestCase):
             student=self.profile,
             course=self.matching_course,
             session=settings.CURRENT_SESSION,
-            semester="first",
+            semester=settings.CURRENT_SEMESTER,
         )
-        response = self.client.get(reverse("courses:register"), {"semester": "first"}, follow=True)
+        response = self.client.get(reverse("courses:register"))
         available = list(response.context["form"].fields["courses"].queryset)
-        self.assertEqual(available, [])
+        self.assertEqual(available, [self.carryover_course])
 
     def test_registration_follows_current_level_not_entry_level(self):
         freshman = make_student("2023/CSC/003", self.department, 100)
-        hundred_level_course = Course.objects.create(
-            code="CSC101", title="Intro to Programming", units=3,
-            department=self.department, level=100, semester="first",
-        )
         self.client.login(username=freshman.user.username, password=settings.DEFAULT_STUDENT_PASSWORD)
 
         with override_settings(CURRENT_SESSION="2027/2028"):
-            response = self.client.get(reverse("courses:register"), {"semester": "first"}, follow=True)
-            available = list(response.context["form"].fields["courses"].queryset)
-            self.assertEqual(available, [self.matching_course])
-            self.assertNotIn(hundred_level_course, available)
+            # Two sessions later, entry_level 100 -> current_level 300 - the 300-level
+            # course should now be visible even though it wasn't at their entry level.
+            response = self.client.get(reverse("courses:register"))
+            available = set(response.context["form"].fields["courses"].queryset)
+            self.assertIn(self.matching_course, available)
+            self.assertNotIn(self.above_current_level_course, available)
 
     def test_non_student_gets_403(self):
         make_admin()

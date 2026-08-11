@@ -4,33 +4,26 @@ from django.shortcuts import redirect, render
 
 from accounts.decorators import student_required
 
-from .forms import CourseSelectionForm, SemesterForm
+from .forms import CourseSelectionForm
 from .models import Course, CourseRegistration
 
 
 @student_required
 def register(request):
     profile = request.user.student_profile
-
-    # Step 1: the semester form uses GET, so a submission lands back on this same
-    # view with "?semester=..." already in the query string - no separate redirect
-    # needed, the form's own field name doubles as step 2's input. Session isn't
-    # asked for - it's just the current academic session (no carryover support yet).
-    semester_form = SemesterForm(request.GET or None)
-    if not semester_form.is_bound or not semester_form.is_valid():
-        return render(request, "courses/select_semester.html", {"form": semester_form})
-
     session = settings.CURRENT_SESSION
-    semester = semester_form.cleaned_data["semester"]
+    semester = settings.CURRENT_SEMESTER
 
-    # Step 2: session/semester picked - narrow courses to the student's own
-    # department/level (CourseRegistration.clean() would reject anything else
-    # anyway) and drop ones already registered for this session/semester.
+    # Session and semester both come from settings, not the student - narrow courses
+    # to the student's own department, the fixed current semester, and anything at or
+    # below their current level (lets a student pick up an earlier-level course they
+    # fell behind on, alongside their own-level courses, in the same pass). The upper
+    # bound (nothing above current level) is still enforced - see CourseRegistration.clean().
     already_registered = profile.registrations.filter(session=session, semester=semester).values_list(
         "course_id", flat=True
     )
     available_courses = Course.objects.filter(
-        department=profile.department, level=profile.current_level, semester=semester
+        department=profile.department, level__lte=profile.current_level, semester=semester
     ).exclude(id__in=already_registered)
 
     if request.method == "POST":
@@ -50,7 +43,7 @@ def register(request):
 
     return render(
         request,
-        "courses/select_courses.html",
+        "courses/register.html",
         {"form": form, "session": session, "semester": semester},
     )
 

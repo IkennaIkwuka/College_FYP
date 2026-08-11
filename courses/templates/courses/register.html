@@ -4,7 +4,7 @@
 
 {% block content %}
     <h1>Register for Courses</h1>
-    <p class="text-muted">Step 2 of 2 - {{ session }}, {{ semester|title }} semester.</p>
+    <p class="text-muted">Registering for {{ session }}, {{ semester|title }} Semester.</p>
 
     {% if form.fields.courses.queryset %}
         <form method="post" class="card card-body">
@@ -25,6 +25,4 @@
     {% else %}
         <p class="text-muted">No courses are available for your department and level this semester.</p>
     {% endif %}
-
-    <a href="{% url 'courses:register' %}" class="btn btn-link mt-3">Start over</a>
 {% endblock %}

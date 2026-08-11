@@ -1,12 +1,6 @@
 from django import forms
 
-from accounts.forms import BootstrapFormMixin
-
-from .models import SEMESTER_CHOICES, Course
-
-
-class SemesterForm(BootstrapFormMixin, forms.Form):
-    semester = forms.ChoiceField(choices=SEMESTER_CHOICES)
+from .models import Course
 
 
 class CourseSelectionForm(forms.Form):

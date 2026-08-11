@@ -62,6 +62,10 @@ DEFAULT_STUDENT_PASSWORD = 'lu2026'
 # e.g. '2026/2027' for the next intake.
 CURRENT_SESSION = '2025/2026'
 
+# Semester students register courses under. Flip this by hand between 'first' and
+# 'second' at each actual semester changeover (twice a year, unlike CURRENT_SESSION).
+CURRENT_SEMESTER = 'first'
+
 MESSAGE_TAGS = {
     messages.ERROR: 'danger',
 }
