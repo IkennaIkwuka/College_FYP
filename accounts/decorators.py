@@ -20,3 +20,16 @@ def admin_required(view_func):
         return view_func(request, *args, **kwargs)
 
     return wrapper
+
+
+def student_required(view_func):
+    """Stack on top of a view to require login AND student role."""
+
+    @login_required
+    @wraps(view_func)
+    def wrapper(request, *args, **kwargs):
+        if not request.user.is_student:
+            raise PermissionDenied("This page is only available to students.")
+        return view_func(request, *args, **kwargs)
+
+    return wrapper

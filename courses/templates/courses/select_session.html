@@ -1,0 +1,13 @@
+{% extends "accounts/base.html" %}
+
+{% block title %}Register for Courses - LU-SIMS{% endblock %}
+
+{% block content %}
+    <h1>Register for Courses</h1>
+    <p class="text-muted">Step 1 of 2 - pick the session and semester you're registering for.</p>
+
+    <form method="get" class="card card-body" style="max-width: 400px;">
+        {{ form.as_p }}
+        <button type="submit" class="btn btn-primary">Continue</button>
+    </form>
+{% endblock %}
