@@ -25,9 +25,15 @@
                     </div>
                     <div id="level{{ level }}" class="collapse {% if level == current_level %}show{% endif %}">
                         <div class="card-body">
+                            <div class="form-check mb-2 pb-2 border-bottom">
+                                <input class="form-check-input select-all-checkbox" type="checkbox" data-target="#level{{ level }}" id="selectall_{{ level }}">
+                                <label class="form-check-label fw-bold" for="selectall_{{ level }}">
+                                    Select all
+                                </label>
+                            </div>
                             {% for course in level_courses %}
                                 <div class="form-check mb-2">
-                                    <input class="form-check-input" type="checkbox" name="courses" value="{{ course.id }}" id="course_{{ course.id }}">
+                                    <input class="form-check-input course-checkbox" type="checkbox" name="courses" value="{{ course.id }}" id="course_{{ course.id }}">
                                     <label class="form-check-label" for="course_{{ course.id }}">
                                         {{ course.code }} - {{ course.title }}
                                     </label>
@@ -43,4 +49,20 @@
     {% else %}
         <p class="text-muted">No courses are available for your department and level this semester.</p>
     {% endif %}
+
+    <script>
+        // One "select all" checkbox per year section - just drives the section's own
+        // checkboxes on/off, doesn't try to track partial selection back onto itself.
+        document.querySelectorAll(".select-all-checkbox").forEach(function (selectAll) {
+            const section = document.querySelector(selectAll.dataset.target);
+            if (!section) {
+                return;
+            }
+            selectAll.addEventListener("change", function () {
+                section.querySelectorAll(".course-checkbox").forEach(function (checkbox) {
+                    checkbox.checked = selectAll.checked;
+                });
+            });
+        });
+    </script>
 {% endblock %}
