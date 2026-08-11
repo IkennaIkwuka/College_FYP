@@ -5,7 +5,9 @@ from .models import Department, StudentProfile
 
 @admin.register(Department)
 class DepartmentAdmin(admin.ModelAdmin):
+    list_display = ("name", "hod")
     search_fields = ("name",)
+    autocomplete_fields = ("hod",)
 
 
 @admin.register(StudentProfile)

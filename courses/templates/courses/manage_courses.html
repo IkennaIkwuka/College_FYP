@@ -1,0 +1,59 @@
+{% extends "accounts/base.html" %}
+
+{% block title %}Manage Courses - LU-SIMS{% endblock %}
+
+{% block content %}
+    <h1>Manage Courses</h1>
+
+    {% if not department %}
+        <p class="text-muted">You are not assigned as HOD of any department.</p>
+    {% else %}
+        <p class="text-muted">{{ department }}</p>
+        <a href="{% url 'courses:course_add' %}" class="btn btn-primary mb-3">Add Course</a>
+
+        {% if courses %}
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>Code</th>
+                        <th>Title</th>
+                        <th>Level</th>
+                        <th>Semester</th>
+                        <th>Lecturer</th>
+                        <th>Status</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for course in courses %}
+                        <tr>
+                            <td>{{ course.code }}</td>
+                            <td>{{ course.title }}</td>
+                            <td>{{ course.get_level_display }}</td>
+                            <td>{{ course.get_semester_display }}</td>
+                            <td>{{ course.lecturer|default:"-" }}</td>
+                            <td>
+                                {% if course.is_active %}
+                                    <span class="badge bg-success">Active</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">Inactive</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-end">
+                                <a href="{% url 'courses:course_edit' course.id %}" class="btn btn-outline-secondary btn-sm">Edit</a>
+                                <form method="post" action="{% url 'courses:course_toggle_active' course.id %}" class="d-inline">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn btn-outline-secondary btn-sm">
+                                        {% if course.is_active %}Deactivate{% else %}Activate{% endif %}
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% else %}
+            <p class="text-muted">No courses in your department yet.</p>
+        {% endif %}
+    {% endif %}
+{% endblock %}

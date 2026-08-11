@@ -5,8 +5,8 @@ from .models import Course, CourseRegistration
 
 @admin.register(Course)
 class CourseAdmin(admin.ModelAdmin):
-    list_display = ("code", "title", "department", "level", "semester", "units", "lecturer")
-    list_filter = ("department", "level", "semester")
+    list_display = ("code", "title", "department", "level", "semester", "units", "lecturer", "is_active")
+    list_filter = ("department", "level", "semester", "is_active")
     search_fields = ("code", "title")
     autocomplete_fields = ("department", "lecturer")
 

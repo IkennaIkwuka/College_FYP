@@ -26,6 +26,9 @@ class Course(models.Model):
         related_name="courses_taught",
         limit_choices_to={"groups__name": LECTURER_GROUP},
     )
+    # Soft-disable rather than delete, so existing CourseRegistration history (PROTECT'd
+    # against the course) stays intact when an HOD deactivates a course.
+    is_active = models.BooleanField(default=True)
 
     class Meta:
         ordering = ["code"]
@@ -59,6 +62,8 @@ class CourseRegistration(models.Model):
                 raise ValidationError("Course department must match the student's department.")
             if self.course.level > self.student.current_level:
                 raise ValidationError("Course level cannot be higher than the student's current level.")
+            if not self.course.is_active:
+                raise ValidationError("This course is not currently active.")
 
     def __str__(self):
         return f"{self.student} - {self.course} ({self.session} {self.semester})"

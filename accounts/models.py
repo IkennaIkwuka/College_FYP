@@ -1,9 +1,10 @@
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 
-ADMIN_GROUP = "Admin"
+ADMIN_GROUP = "IT Admin"
 LECTURER_GROUP = "Lecturer"
 STUDENT_GROUP = "Student"
+HOD_GROUP = "HOD"
 
 
 class User(AbstractUser):
@@ -26,3 +27,7 @@ class User(AbstractUser):
     @property
     def is_student(self):
         return self.has_role(STUDENT_GROUP)
+
+    @property
+    def is_hod(self):
+        return self.has_role(HOD_GROUP)

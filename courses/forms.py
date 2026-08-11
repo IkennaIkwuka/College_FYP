@@ -1,6 +1,16 @@
 from django import forms
 
+from accounts.forms import BootstrapFormMixin
+
 from .models import Course
+
+
+class CourseForm(BootstrapFormMixin, forms.ModelForm):
+    # department is deliberately excluded - the view sets it from the HOD's own
+    # department, so a course can never be created/reassigned outside it via form data.
+    class Meta:
+        model = Course
+        fields = ["code", "title", "units", "level", "semester", "lecturer", "is_active"]
 
 
 class CourseSelectionForm(forms.Form):

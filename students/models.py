@@ -1,3 +1,4 @@
+from accounts.models import HOD_GROUP
 from django.conf import settings
 from django.db import models
 
@@ -17,6 +18,14 @@ GENDER_CHOICES = [
 
 class Department(models.Model):
     name = models.CharField(max_length=100, unique=True)
+    hod = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="department_headed",
+        limit_choices_to={"groups__name": HOD_GROUP},
+    )
 
     class Meta:
         ordering = ["name"]

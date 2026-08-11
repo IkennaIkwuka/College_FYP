@@ -1,4 +1,6 @@
+from accounts.models import HOD_GROUP, User
 from django.conf import settings
+from django.contrib.auth.models import Group
 from django.test import TestCase, override_settings
 from django.urls import reverse
 
@@ -7,6 +9,15 @@ from students.services import create_student_account
 from students.tests import make_admin
 
 from .models import Course, CourseRegistration
+
+
+def make_hod(username, department=None):
+    hod = User.objects.create_user(username=username, email=f"{username}@example.com", password="pass12345")
+    hod.groups.add(Group.objects.get(name=HOD_GROUP))
+    if department is not None:
+        department.hod = hod
+        department.save(update_fields=["hod"])
+    return hod
 
 
 def make_student(matric_number, department, level):
@@ -111,6 +122,13 @@ class RegisterViewTests(TestCase):
         response = self.client.get(reverse("courses:register"))
         self.assertEqual(response.status_code, 403)
 
+    def test_inactive_course_excluded_from_available_list(self):
+        self.matching_course.is_active = False
+        self.matching_course.save(update_fields=["is_active"])
+        response = self.client.get(reverse("courses:register"))
+        available = set(response.context["form"].fields["courses"].queryset)
+        self.assertNotIn(self.matching_course, available)
+
 
 class MyRegistrationsViewTests(TestCase):
     def setUp(self):
@@ -129,3 +147,76 @@ class MyRegistrationsViewTests(TestCase):
         response = self.client.get(reverse("courses:my_registrations"))
         self.assertContains(response, "CSC301")
         self.assertContains(response, settings.CURRENT_SESSION)
+
+
+class ManageCoursesTests(TestCase):
+    def setUp(self):
+        self.department = Department.objects.create(name="Computer Science")
+        self.other_department = Department.objects.create(name="Physics")
+        self.hod = make_hod("hod1", department=self.department)
+        self.other_hod = make_hod("hod2", department=self.other_department)
+
+        self.own_course = Course.objects.create(
+            code="CSC301", title="Algorithms", units=3,
+            department=self.department, level=300, semester="first",
+        )
+        self.other_course = Course.objects.create(
+            code="PHY301", title="Mechanics", units=3,
+            department=self.other_department, level=300, semester="first",
+        )
+
+        self.client.login(username="hod1", password="pass12345")
+
+    def test_manage_courses_lists_only_own_department(self):
+        response = self.client.get(reverse("courses:manage_courses"))
+        self.assertContains(response, "CSC301")
+        self.assertNotContains(response, "PHY301")
+
+    def test_add_course_is_scoped_to_own_department(self):
+        response = self.client.post(
+            reverse("courses:course_add"),
+            {"code": "CSC302", "title": "Compilers", "units": 3, "level": 300, "semester": "first"},
+        )
+        self.assertRedirects(response, reverse("courses:manage_courses"))
+        course = Course.objects.get(code="CSC302")
+        self.assertEqual(course.department, self.department)
+
+    def test_edit_own_course_succeeds(self):
+        response = self.client.post(
+            reverse("courses:course_edit", args=[self.own_course.id]),
+            {"code": "CSC301", "title": "Algorithms II", "units": 3, "level": 300, "semester": "first"},
+        )
+        self.assertRedirects(response, reverse("courses:manage_courses"))
+        self.own_course.refresh_from_db()
+        self.assertEqual(self.own_course.title, "Algorithms II")
+
+    def test_edit_other_departments_course_404s(self):
+        response = self.client.get(reverse("courses:course_edit", args=[self.other_course.id]))
+        self.assertEqual(response.status_code, 404)
+
+    def test_toggle_active_on_other_departments_course_404s(self):
+        response = self.client.post(reverse("courses:course_toggle_active", args=[self.other_course.id]))
+        self.assertEqual(response.status_code, 404)
+
+    def test_toggle_active_deactivates_and_removes_from_student_registration(self):
+        student = make_student("2023/CSC/010", self.department, 300)
+        self.client.post(reverse("courses:course_toggle_active", args=[self.own_course.id]))
+        self.own_course.refresh_from_db()
+        self.assertFalse(self.own_course.is_active)
+
+        self.client.login(username=student.user.username, password=settings.DEFAULT_STUDENT_PASSWORD)
+        response = self.client.get(reverse("courses:register"))
+        available = set(response.context["form"].fields["courses"].queryset)
+        self.assertNotIn(self.own_course, available)
+
+    def test_hod_with_no_department_sees_friendly_message(self):
+        make_hod("hod_unassigned")
+        self.client.login(username="hod_unassigned", password="pass12345")
+        response = self.client.get(reverse("courses:manage_courses"))
+        self.assertContains(response, "not assigned as HOD")
+
+    def test_non_hod_gets_403(self):
+        make_admin()
+        self.client.login(username="admin", password="pass12345")
+        response = self.client.get(reverse("courses:manage_courses"))
+        self.assertEqual(response.status_code, 403)
