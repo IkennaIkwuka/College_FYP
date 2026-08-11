@@ -110,7 +110,7 @@ def bulk_import(request):
                                 last_name=row["last_name"].strip(),
                                 email=row["email"].strip(),
                                 department=department,
-                                level=int(row["level"]),
+                                entry_level=int(row["level"]),
                                 **optional_fields,
                             )
                     messages.success(request, f"Imported {len(rows)} students.")

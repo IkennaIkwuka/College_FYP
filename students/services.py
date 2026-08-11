@@ -5,7 +5,7 @@ from django.contrib.auth.models import Group
 from .models import StudentProfile
 
 
-def create_student_account(*, matric_number, first_name, last_name, email, department, level, **optional_fields):
+def create_student_account(*, matric_number, first_name, last_name, email, department, entry_level, **optional_fields):
     matric_number = matric_number.strip().upper()
     # Django's username field rejects "/", which real matric numbers contain (e.g.
     # 2023/CSC/030), so this is just an internal ID - actual student login goes through
@@ -29,6 +29,7 @@ def create_student_account(*, matric_number, first_name, last_name, email, depar
         user=user,
         matric_number=matric_number,
         department=department,
-        level=level,
+        entry_level=entry_level,
+        entry_session=settings.CURRENT_SESSION,
         **optional_fields,
     )

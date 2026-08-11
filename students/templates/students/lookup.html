@@ -19,7 +19,8 @@
                     <tr><th>Matric number</th><td>{{ profile.matric_number }}</td></tr>
                     <tr><th>Email</th><td>{{ profile.user.email }}</td></tr>
                     <tr><th>Department</th><td>{{ profile.department }}</td></tr>
-                    <tr><th>Level</th><td>{{ profile.get_level_display }}</td></tr>
+                    <tr><th>Entry Level</th><td>{{ profile.get_entry_level_display }}</td></tr>
+                    <tr><th>Current Level</th><td>{{ profile.current_level_display }}</td></tr>
                     <tr><th>Date of birth</th><td>{{ profile.date_of_birth|default:"-" }}</td></tr>
                     <tr><th>Gender</th><td>{{ profile.get_gender_display|default:"-" }}</td></tr>
                     <tr><th>Phone number</th><td>{{ profile.phone_number|default:"-" }}</td></tr>

@@ -30,7 +30,7 @@ def register(request):
         "course_id", flat=True
     )
     available_courses = Course.objects.filter(
-        department=profile.department, level=profile.level, semester=semester
+        department=profile.department, level=profile.current_level, semester=semester
     ).exclude(id__in=already_registered)
 
     if request.method == "POST":

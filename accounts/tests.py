@@ -17,7 +17,7 @@ class MatricNumberLoginTests(TestCase):
             last_name="Doe",
             email="jane@example.com",
             department=self.department,
-            level=300,
+            entry_level=300,
         )
 
     def test_login_with_matric_number(self):
@@ -42,7 +42,7 @@ class ForcedPasswordChangeTests(TestCase):
             last_name="Smith",
             email="john@example.com",
             department=self.department,
-            level=300,
+            entry_level=300,
         )
         self.client.login(username="2023/CSC/031", password=settings.DEFAULT_STUDENT_PASSWORD)
 
@@ -89,7 +89,7 @@ class AdminOnlyViewsTests(TestCase):
             last_name="Lee",
             email="ann@example.com",
             department=self.department,
-            level=200,
+            entry_level=200,
         )
         # Skip the forced-password-change redirect for these permission checks -
         # that flow is covered separately in ForcedPasswordChangeTests.

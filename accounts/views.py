@@ -22,7 +22,7 @@ def register(request):
                 last_name=form.cleaned_data["last_name"],
                 email=form.cleaned_data["email"],
                 department=form.cleaned_data["department"],
-                level=form.cleaned_data["level"],
+                entry_level=form.cleaned_data["level"],
             )
             messages.success(
                 request,

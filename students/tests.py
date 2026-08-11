@@ -2,7 +2,7 @@ from accounts.models import ADMIN_GROUP, User
 from django.conf import settings
 from django.contrib.auth.models import Group
 from django.core.files.uploadedfile import SimpleUploadedFile
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.urls import reverse
 
 from .models import Department, StudentProfile
@@ -69,7 +69,7 @@ class LookupTests(TestCase):
             last_name="Ade",
             email="tolu@example.com",
             department=self.department,
-            level=300,
+            entry_level=300,
         )
 
     def test_lookup_found(self):
@@ -79,3 +79,28 @@ class LookupTests(TestCase):
     def test_lookup_not_found(self):
         response = self.client.get(reverse("students:lookup"), {"matric_number": "9999/XX/999"})
         self.assertContains(response, "No student found")
+
+
+class CurrentLevelTests(TestCase):
+    def setUp(self):
+        self.department = Department.objects.create(name="Computer Science")
+        self.profile = create_student_account(
+            matric_number="2023/CSC/006",
+            first_name="Ada",
+            last_name="Obi",
+            email="ada@example.com",
+            department=self.department,
+            entry_level=100,
+        )
+
+    def test_current_level_matches_entry_level_in_same_session(self):
+        self.assertEqual(self.profile.entry_session, settings.CURRENT_SESSION)
+        self.assertEqual(self.profile.current_level, 100)
+
+    @override_settings(CURRENT_SESSION="2027/2028")
+    def test_current_level_advances_with_session(self):
+        self.assertEqual(self.profile.current_level, 300)
+
+    @override_settings(CURRENT_SESSION="2035/2036")
+    def test_current_level_caps_at_500(self):
+        self.assertEqual(self.profile.current_level, 500)

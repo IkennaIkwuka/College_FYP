@@ -57,8 +57,8 @@ class CourseRegistration(models.Model):
         if self.course_id and self.student_id:
             if self.course.department_id != self.student.department_id:
                 raise ValidationError("Course department must match the student's department.")
-            if self.course.level != self.student.level:
-                raise ValidationError("Course level must match the student's level.")
+            if self.course.level != self.student.current_level:
+                raise ValidationError("Course level must match the student's current level.")
 
     def __str__(self):
         return f"{self.student} - {self.course} ({self.session} {self.semester})"
