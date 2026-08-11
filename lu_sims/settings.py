@@ -58,6 +58,10 @@ LOGOUT_REDIRECT_URL = 'accounts:login'
 # login). Bump this every academic year, e.g. 'lu2027' for the 2027 intake.
 DEFAULT_STUDENT_PASSWORD = 'lu2026'
 
+# Academic session students register courses under. Bump this every academic year,
+# e.g. '2026/2027' for the next intake.
+CURRENT_SESSION = '2025/2026'
+
 MESSAGE_TAGS = {
     messages.ERROR: 'danger',
 }

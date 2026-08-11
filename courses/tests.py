@@ -48,38 +48,40 @@ class RegisterViewTests(TestCase):
 
         self.client.login(username=self.profile.user.username, password=settings.DEFAULT_STUDENT_PASSWORD)
 
-    def test_no_query_params_shows_session_form(self):
+    def test_no_query_params_shows_semester_form(self):
         response = self.client.get(reverse("courses:register"))
-        self.assertTemplateUsed(response, "courses/select_session.html")
+        self.assertTemplateUsed(response, "courses/select_semester.html")
 
-    def test_valid_session_and_semester_shows_course_list(self):
-        response = self.client.get(reverse("courses:register"), {"session": "2025/2026", "semester": "first"})
+    def test_valid_semester_shows_course_list(self):
+        response = self.client.get(reverse("courses:register"), {"semester": "first"})
         self.assertTemplateUsed(response, "courses/select_courses.html")
 
     def test_step_two_only_lists_matching_available_courses(self):
-        response = self.client.get(
-            reverse("courses:register"), {"session": "2025/2026", "semester": "first"}, follow=True
-        )
+        response = self.client.get(reverse("courses:register"), {"semester": "first"}, follow=True)
         available = list(response.context["form"].fields["courses"].queryset)
         self.assertEqual(available, [self.matching_course])
 
     def test_post_creates_registration(self):
-        url = f"{reverse('courses:register')}?session=2025/2026&semester=first"
+        url = f"{reverse('courses:register')}?semester=first"
         response = self.client.post(url, {"courses": [self.matching_course.id]})
         self.assertRedirects(response, reverse("courses:my_registrations"))
         self.assertTrue(
             CourseRegistration.objects.filter(
-                student=self.profile, course=self.matching_course, session="2025/2026", semester="first"
+                student=self.profile,
+                course=self.matching_course,
+                session=settings.CURRENT_SESSION,
+                semester="first",
             ).exists()
         )
 
     def test_already_registered_course_excluded_from_available_list(self):
         CourseRegistration.objects.create(
-            student=self.profile, course=self.matching_course, session="2025/2026", semester="first"
+            student=self.profile,
+            course=self.matching_course,
+            session=settings.CURRENT_SESSION,
+            semester="first",
         )
-        response = self.client.get(
-            reverse("courses:register"), {"session": "2025/2026", "semester": "first"}, follow=True
-        )
+        response = self.client.get(reverse("courses:register"), {"semester": "first"}, follow=True)
         available = list(response.context["form"].fields["courses"].queryset)
         self.assertEqual(available, [])
 
@@ -99,11 +101,11 @@ class MyRegistrationsViewTests(TestCase):
             department=self.department, level=300, semester="first",
         )
         CourseRegistration.objects.create(
-            student=self.profile, course=self.course, session="2025/2026", semester="first"
+            student=self.profile, course=self.course, session=settings.CURRENT_SESSION, semester="first"
         )
         self.client.login(username=self.profile.user.username, password=settings.DEFAULT_STUDENT_PASSWORD)
 
     def test_lists_own_registrations(self):
         response = self.client.get(reverse("courses:my_registrations"))
         self.assertContains(response, "CSC301")
-        self.assertContains(response, "2025/2026")
+        self.assertContains(response, settings.CURRENT_SESSION)

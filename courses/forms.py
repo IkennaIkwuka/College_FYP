@@ -5,12 +5,8 @@ from accounts.forms import BootstrapFormMixin
 from .models import SEMESTER_CHOICES, Course
 
 
-class SessionSemesterForm(BootstrapFormMixin, forms.Form):
-    session = forms.CharField(max_length=9, help_text="e.g. 2025/2026")
+class SemesterForm(BootstrapFormMixin, forms.Form):
     semester = forms.ChoiceField(choices=SEMESTER_CHOICES)
-
-    def clean_session(self):
-        return self.cleaned_data["session"].strip()
 
 
 class CourseSelectionForm(forms.Form):

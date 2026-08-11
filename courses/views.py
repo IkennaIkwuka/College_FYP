@@ -1,9 +1,10 @@
+from django.conf import settings
 from django.contrib import messages
 from django.shortcuts import redirect, render
 
 from accounts.decorators import student_required
 
-from .forms import CourseSelectionForm, SessionSemesterForm
+from .forms import CourseSelectionForm, SemesterForm
 from .models import Course, CourseRegistration
 
 
@@ -11,15 +12,16 @@ from .models import Course, CourseRegistration
 def register(request):
     profile = request.user.student_profile
 
-    # Step 1: the session/semester form uses GET, so a submission lands back on
-    # this same view with "?session=...&semester=..." already in the query string -
-    # no separate redirect needed, the form's own field names double as step 2's input.
-    session_form = SessionSemesterForm(request.GET or None)
-    if not session_form.is_bound or not session_form.is_valid():
-        return render(request, "courses/select_session.html", {"form": session_form})
+    # Step 1: the semester form uses GET, so a submission lands back on this same
+    # view with "?semester=..." already in the query string - no separate redirect
+    # needed, the form's own field name doubles as step 2's input. Session isn't
+    # asked for - it's just the current academic session (no carryover support yet).
+    semester_form = SemesterForm(request.GET or None)
+    if not semester_form.is_bound or not semester_form.is_valid():
+        return render(request, "courses/select_semester.html", {"form": semester_form})
 
-    session = session_form.cleaned_data["session"]
-    semester = session_form.cleaned_data["semester"]
+    session = settings.CURRENT_SESSION
+    semester = semester_form.cleaned_data["semester"]
 
     # Step 2: session/semester picked - narrow courses to the student's own
     # department/level (CourseRegistration.clean() would reject anything else
