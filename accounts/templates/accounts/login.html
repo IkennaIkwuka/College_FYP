@@ -16,6 +16,10 @@
                         {{ form.as_p }}
                         <button type="submit" class="btn btn-primary w-100 mt-2">Log in</button>
                     </form>
+                    <p class="text-muted text-center small mt-3 mb-0">
+                        Is this your first time here?
+                        <a href="{% url 'accounts:self_register_start' %}">Create your student account</a>.
+                    </p>
                 </div>
             </div>
         </div>

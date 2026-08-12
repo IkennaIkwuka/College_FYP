@@ -61,7 +61,7 @@ class RegisterViewTests(TestCase):
             department=self.department, level=300, semester="second",
         )
 
-        self.client.login(username=self.profile.user.username, password=settings.DEFAULT_STUDENT_PASSWORD)
+        self.client.login(username=self.profile.user.username, password=settings.DEFAULT_PASSWORD)
 
     def test_get_shows_course_list_directly(self):
         response = self.client.get(reverse("courses:register"))
@@ -106,7 +106,7 @@ class RegisterViewTests(TestCase):
 
     def test_registration_follows_current_level_not_entry_level(self):
         freshman = make_student("2023/CSC/003", self.department, 100)
-        self.client.login(username=freshman.user.username, password=settings.DEFAULT_STUDENT_PASSWORD)
+        self.client.login(username=freshman.user.username, password=settings.DEFAULT_PASSWORD)
 
         with override_settings(CURRENT_SESSION="2027/2028"):
             # Two sessions later, entry_level 100 -> current_level 300 - the 300-level
@@ -141,7 +141,7 @@ class MyRegistrationsViewTests(TestCase):
         CourseRegistration.objects.create(
             student=self.profile, course=self.course, session=settings.CURRENT_SESSION, semester="first"
         )
-        self.client.login(username=self.profile.user.username, password=settings.DEFAULT_STUDENT_PASSWORD)
+        self.client.login(username=self.profile.user.username, password=settings.DEFAULT_PASSWORD)
 
     def test_lists_own_registrations(self):
         response = self.client.get(reverse("courses:my_registrations"))
@@ -204,7 +204,7 @@ class ManageCoursesTests(TestCase):
         self.own_course.refresh_from_db()
         self.assertFalse(self.own_course.is_active)
 
-        self.client.login(username=student.user.username, password=settings.DEFAULT_STUDENT_PASSWORD)
+        self.client.login(username=student.user.username, password=settings.DEFAULT_PASSWORD)
         response = self.client.get(reverse("courses:register"))
         available = set(response.context["form"].fields["courses"].queryset)
         self.assertNotIn(self.own_course, available)

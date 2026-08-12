@@ -46,17 +46,16 @@ INSTALLED_APPS = [
 
 AUTH_USER_MODEL = 'accounts.User'
 
-AUTHENTICATION_BACKENDS = [
-    'accounts.backends.MatricNumberOrUsernameBackend',
-]
-
 LOGIN_URL = 'login'
 LOGIN_REDIRECT_URL = 'dashboard'
 LOGOUT_REDIRECT_URL = 'login'
 
-# Initial password for admin-created/bulk-imported student accounts (forced change on first
-# login). Bump this every academic year, e.g. 'lu2027' for the 2027 intake.
-DEFAULT_STUDENT_PASSWORD = 'lu2026'
+# Initial password for admin-created accounts - students created via Add Student/Bulk
+# Import, and staff created via Django admin. Forced change on first login. Bump this
+# every academic year, e.g. 'lu2027' for the 2027 intake. Students who self-register
+# instead (see accounts self-registration views) choose their own password up front
+# and never get this one.
+DEFAULT_PASSWORD = 'lu2026'
 
 # Academic session students register courses under. Bump this every academic year,
 # e.g. '2026/2027' for the next intake.
@@ -65,6 +64,17 @@ CURRENT_SESSION = '2025/2026'
 # Semester students register courses under. Flip this by hand between 'first' and
 # 'second' at each actual semester changeover (twice a year, unlike CURRENT_SESSION).
 CURRENT_SEMESTER = 'first'
+
+# Prints emails to the console instead of actually sending them - fine for local dev/demo
+# where self-registration PINs just need to be testable. Swap for a real SMTP backend
+# before this ever needs to reach a real inbox.
+EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+DEFAULT_FROM_EMAIL = 'no-reply@lu-sims.local'
+
+# Self-registration PIN policy (students.models.AdmissionRecord) - lock a record out
+# after this many wrong PIN attempts, for this long, to resist brute-forcing a 6-digit PIN.
+PIN_MAX_ATTEMPTS = 5
+PIN_LOCKOUT_MINUTES = 15
 
 MESSAGE_TAGS = {
     messages.ERROR: 'danger',

@@ -1,0 +1,24 @@
+{% extends "accounts/base.html" %}
+
+{% block title %}Create Your Account - LU-SIMS{% endblock %}
+
+{% block content %}
+    <div class="row justify-content-center">
+        <div class="col-12 col-md-6 col-lg-4">
+            <div class="card shadow-sm mt-4">
+                <div class="card-body p-4">
+                    <h1 class="h3 mb-3 text-center">Create Your Account</h1>
+                    <p class="text-muted text-center small">
+                        Enter your matric number to get started. You'll need the PIN
+                        that was emailed to you.
+                    </p>
+                    <form method="post">
+                        {% csrf_token %}
+                        {{ form.as_p }}
+                        <button type="submit" class="btn btn-primary w-100 mt-2">Continue</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock %}
