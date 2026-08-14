@@ -5,6 +5,9 @@ ADMIN_GROUP = "IT Admin"
 LECTURER_GROUP = "Lecturer"
 STUDENT_GROUP = "Student"
 HOD_GROUP = "HOD"
+REGISTRAR_GROUP = "Registrar"
+BURSAR_GROUP = "Bursar"
+DEAN_GROUP = "Dean"
 
 
 class User(AbstractUser):
@@ -36,6 +39,18 @@ class User(AbstractUser):
     @property
     def is_hod(self):
         return self.has_role(HOD_GROUP)
+
+    @property
+    def is_registrar(self):
+        return self.has_role(REGISTRAR_GROUP)
+
+    @property
+    def is_bursar(self):
+        return self.has_role(BURSAR_GROUP)
+
+    @property
+    def is_dean(self):
+        return self.has_role(DEAN_GROUP)
 
 
 class StaffIDCounter(models.Model):

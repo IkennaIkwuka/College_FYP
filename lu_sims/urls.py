@@ -21,6 +21,13 @@ from django.urls import include, path
 urlpatterns = [
     path('login/', accounts_views.PortalLoginView.as_view(), name='login'),
     path('dashboard/', accounts_views.dashboard, name='dashboard'),
+    path('dashboard/admin/', accounts_views.admin_dashboard, name='admin_dashboard'),
+    path('dashboard/dean/', accounts_views.dean_dashboard, name='dean_dashboard'),
+    path('dashboard/hod/', accounts_views.hod_dashboard, name='hod_dashboard'),
+    path('dashboard/registrar/', accounts_views.registrar_dashboard, name='registrar_dashboard'),
+    path('dashboard/bursar/', accounts_views.bursar_dashboard, name='bursar_dashboard'),
+    path('dashboard/lecturer/', accounts_views.lecturer_dashboard, name='lecturer_dashboard'),
+    path('dashboard/student/', accounts_views.student_dashboard, name='student_dashboard'),
     path('admin/', admin.site.urls),
     path('accounts/', include('accounts.urls')),
     path('students/', include('students.urls')),

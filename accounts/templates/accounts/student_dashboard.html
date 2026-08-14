@@ -1,7 +1,8 @@
 {% extends "accounts/base.html" %}
 
-{% block title %}Dashboard - LU-SIMS{% endblock %}
+{% block title %}Student Dashboard - LU-SIMS{% endblock %}
 
 {% block content %}
     <h1>Welcome, {{ user.get_full_name|default:user.username }}</h1>
+    <p class="text-muted">Student dashboard.</p>
 {% endblock %}

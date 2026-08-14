@@ -2,6 +2,7 @@ from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth import views as auth_views
 from django.contrib.auth.decorators import login_required
+from django.core.exceptions import PermissionDenied
 from django.db import IntegrityError, transaction
 from django.shortcuts import redirect, render
 from django.urls import reverse_lazy
@@ -9,7 +10,15 @@ from django.urls import reverse_lazy
 from students.models import AdmissionRecord
 from students.services import create_student_account
 
-from .decorators import admin_required
+from .decorators import (
+    admin_required,
+    bursar_required,
+    dean_required,
+    hod_required,
+    lecturer_required,
+    registrar_required,
+    student_required,
+)
 from .forms import ChangePasswordForm, LoginForm, MatricLookupForm, PinForm, SelfRegisterPasswordForm, StudentAccountForm
 
 
@@ -44,7 +53,62 @@ def register(request):
 
 @login_required
 def dashboard(request):
-    return render(request, "accounts/dashboard.html")
+    # Thin dispatcher - sends each user to their role's dashboard so 'dashboard'
+    # (LOGIN_REDIRECT_URL) stays a stable target regardless of role count. is_admin
+    # already covers is_superuser, checked first. Dean before HOD before lecturer/
+    # registrar/bursar - a Dean or HOD is usually also a Lecturer and should land on
+    # their more specific page; Registrar/Bursar are administrative-only roles that
+    # don't overlap with the academic chain.
+    if request.user.is_admin:
+        return redirect("admin_dashboard")
+    if request.user.is_dean:
+        return redirect("dean_dashboard")
+    if request.user.is_hod:
+        return redirect("hod_dashboard")
+    if request.user.is_registrar:
+        return redirect("registrar_dashboard")
+    if request.user.is_bursar:
+        return redirect("bursar_dashboard")
+    if request.user.is_lecturer:
+        return redirect("lecturer_dashboard")
+    if request.user.is_student:
+        return redirect("student_dashboard")
+    raise PermissionDenied("Your account isn't assigned to a role yet. Contact IT Admin.")
+
+
+@admin_required
+def admin_dashboard(request):
+    return render(request, "accounts/admin_dashboard.html")
+
+
+@dean_required
+def dean_dashboard(request):
+    return render(request, "accounts/dean_dashboard.html")
+
+
+@hod_required
+def hod_dashboard(request):
+    return render(request, "accounts/hod_dashboard.html")
+
+
+@registrar_required
+def registrar_dashboard(request):
+    return render(request, "accounts/registrar_dashboard.html")
+
+
+@bursar_required
+def bursar_dashboard(request):
+    return render(request, "accounts/bursar_dashboard.html")
+
+
+@lecturer_required
+def lecturer_dashboard(request):
+    return render(request, "accounts/lecturer_dashboard.html")
+
+
+@student_required
+def student_dashboard(request):
+    return render(request, "accounts/student_dashboard.html")
 
 
 class PortalLoginView(auth_views.LoginView):

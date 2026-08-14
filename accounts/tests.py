@@ -5,7 +5,7 @@ from django.urls import reverse
 from students.models import AdmissionRecord, Department, StudentProfile
 from students.services import create_student_account, seed_admission_record
 
-from .models import ADMIN_GROUP, LECTURER_GROUP, User
+from .models import ADMIN_GROUP, BURSAR_GROUP, DEAN_GROUP, HOD_GROUP, LECTURER_GROUP, REGISTRAR_GROUP, User
 from .services import assign_staff_identity
 
 
@@ -13,6 +13,36 @@ def make_admin():
     admin = User.objects.create_user(username="admin", email="admin@example.com", password="pass12345")
     admin.groups.add(Group.objects.get(name=ADMIN_GROUP))
     return admin
+
+
+def make_hod(username="hod1"):
+    hod = User.objects.create_user(username=username, email=f"{username}@example.com", password="pass12345")
+    hod.groups.add(Group.objects.get(name=HOD_GROUP))
+    return hod
+
+
+def make_lecturer(username="lect1"):
+    lecturer = User.objects.create_user(username=username, email=f"{username}@example.com", password="pass12345")
+    lecturer.groups.add(Group.objects.get(name=LECTURER_GROUP))
+    return lecturer
+
+
+def make_registrar(username="reg1"):
+    registrar = User.objects.create_user(username=username, email=f"{username}@example.com", password="pass12345")
+    registrar.groups.add(Group.objects.get(name=REGISTRAR_GROUP))
+    return registrar
+
+
+def make_bursar(username="bursar1"):
+    bursar = User.objects.create_user(username=username, email=f"{username}@example.com", password="pass12345")
+    bursar.groups.add(Group.objects.get(name=BURSAR_GROUP))
+    return bursar
+
+
+def make_dean(username="dean1"):
+    dean = User.objects.create_user(username=username, email=f"{username}@example.com", password="pass12345")
+    dean.groups.add(Group.objects.get(name=DEAN_GROUP))
+    return dean
 
 
 class LoginTests(TestCase):
@@ -67,7 +97,7 @@ class ForcedPasswordChangeTests(TestCase):
         )
         self.profile.user.refresh_from_db()
         self.assertFalse(self.profile.user.must_change_password)
-        self.assertEqual(self.client.get(reverse("dashboard")).status_code, 200)
+        self.assertRedirects(self.client.get(reverse("dashboard")), reverse("student_dashboard"))
 
     def test_weak_password_rejected(self):
         # all-lowercase, no digit or symbol - fails ComplexityValidator even though
@@ -223,3 +253,98 @@ class SelfRegistrationTests(TestCase):
         self._start()
         response = self.client.get(reverse("accounts:self_register_password"))
         self.assertRedirects(response, reverse("accounts:self_register_start"))
+
+
+class DashboardRoutingTests(TestCase):
+    def setUp(self):
+        self.department = Department.objects.create(name="Computer Science")
+        self.student_profile = create_student_account(
+            matric_number="2023/CSC/050",
+            first_name="Sam",
+            last_name="Okoro",
+            email="sam@example.com",
+            department=self.department,
+            entry_level=200,
+        )
+        # Skip the forced-password-change redirect - covered separately in
+        # ForcedPasswordChangeTests.
+        self.student_profile.user.must_change_password = False
+        self.student_profile.user.save(update_fields=["must_change_password"])
+
+    def test_admin_redirected_to_admin_dashboard(self):
+        make_admin()
+        self.client.login(username="admin", password="pass12345")
+        self.assertRedirects(self.client.get(reverse("dashboard")), reverse("admin_dashboard"))
+
+    def test_hod_redirected_to_hod_dashboard(self):
+        make_hod()
+        self.client.login(username="hod1", password="pass12345")
+        self.assertRedirects(self.client.get(reverse("dashboard")), reverse("hod_dashboard"))
+
+    def test_lecturer_redirected_to_lecturer_dashboard(self):
+        make_lecturer()
+        self.client.login(username="lect1", password="pass12345")
+        self.assertRedirects(self.client.get(reverse("dashboard")), reverse("lecturer_dashboard"))
+
+    def test_student_redirected_to_student_dashboard(self):
+        self.client.login(username=self.student_profile.user.username, password=settings.DEFAULT_PASSWORD)
+        self.assertRedirects(self.client.get(reverse("dashboard")), reverse("student_dashboard"))
+
+    def test_hod_takes_priority_over_lecturer(self):
+        # A department head is usually also a Lecturer - HOD should win.
+        user = make_hod(username="hodlect")
+        user.groups.add(Group.objects.get(name=LECTURER_GROUP))
+        self.client.login(username="hodlect", password="pass12345")
+        self.assertRedirects(self.client.get(reverse("dashboard")), reverse("hod_dashboard"))
+
+    def test_registrar_redirected_to_registrar_dashboard(self):
+        make_registrar()
+        self.client.login(username="reg1", password="pass12345")
+        self.assertRedirects(self.client.get(reverse("dashboard")), reverse("registrar_dashboard"))
+
+    def test_bursar_redirected_to_bursar_dashboard(self):
+        make_bursar()
+        self.client.login(username="bursar1", password="pass12345")
+        self.assertRedirects(self.client.get(reverse("dashboard")), reverse("bursar_dashboard"))
+
+    def test_dean_redirected_to_dean_dashboard(self):
+        make_dean()
+        self.client.login(username="dean1", password="pass12345")
+        self.assertRedirects(self.client.get(reverse("dashboard")), reverse("dean_dashboard"))
+
+    def test_dean_takes_priority_over_hod(self):
+        # A Dean is senior academic staff, often also an HOD in a smaller faculty -
+        # Dean should win.
+        user = make_dean(username="deanhod")
+        user.groups.add(Group.objects.get(name=HOD_GROUP))
+        self.client.login(username="deanhod", password="pass12345")
+        self.assertRedirects(self.client.get(reverse("dashboard")), reverse("dean_dashboard"))
+
+    def test_non_registrar_forbidden_from_registrar_dashboard(self):
+        self.client.login(username=self.student_profile.user.username, password=settings.DEFAULT_PASSWORD)
+        self.assertEqual(self.client.get(reverse("registrar_dashboard")).status_code, 403)
+
+    def test_non_bursar_forbidden_from_bursar_dashboard(self):
+        self.client.login(username=self.student_profile.user.username, password=settings.DEFAULT_PASSWORD)
+        self.assertEqual(self.client.get(reverse("bursar_dashboard")).status_code, 403)
+
+    def test_non_dean_forbidden_from_dean_dashboard(self):
+        self.client.login(username=self.student_profile.user.username, password=settings.DEFAULT_PASSWORD)
+        self.assertEqual(self.client.get(reverse("dean_dashboard")).status_code, 403)
+
+    def test_non_admin_forbidden_from_admin_dashboard(self):
+        self.client.login(username=self.student_profile.user.username, password=settings.DEFAULT_PASSWORD)
+        self.assertEqual(self.client.get(reverse("admin_dashboard")).status_code, 403)
+
+    def test_non_hod_forbidden_from_hod_dashboard(self):
+        self.client.login(username=self.student_profile.user.username, password=settings.DEFAULT_PASSWORD)
+        self.assertEqual(self.client.get(reverse("hod_dashboard")).status_code, 403)
+
+    def test_non_lecturer_forbidden_from_lecturer_dashboard(self):
+        self.client.login(username=self.student_profile.user.username, password=settings.DEFAULT_PASSWORD)
+        self.assertEqual(self.client.get(reverse("lecturer_dashboard")).status_code, 403)
+
+    def test_non_student_forbidden_from_student_dashboard(self):
+        make_admin()
+        self.client.login(username="admin", password="pass12345")
+        self.assertEqual(self.client.get(reverse("student_dashboard")).status_code, 403)
