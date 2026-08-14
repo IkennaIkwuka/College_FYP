@@ -1,0 +1,17 @@
+{% extends "accounts/base.html" %}
+
+{% block title %}Add Staff - LU-SIMS{% endblock %}
+
+{% block content %}
+    <h1>Add Staff</h1>
+    <p class="text-muted">The staff member's initial password will be "{{ default_password }}". They'll be required to change it on first login.</p>
+    <div class="card">
+        <div class="card-body">
+            <form method="post">
+                {% csrf_token %}
+                {{ form.as_p }}
+                <button type="submit" class="btn btn-primary">Add Staff</button>
+            </form>
+        </div>
+    </div>
+{% endblock %}

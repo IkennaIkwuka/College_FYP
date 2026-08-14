@@ -18,13 +18,19 @@
                         <a class="btn btn-outline-light btn-sm me-2" href="{% url 'students:bulk_import' %}">Bulk Import</a>
                         <a class="btn btn-outline-light btn-sm me-2" href="{% url 'students:seed_admissions' %}">Seed Admissions</a>
                         <a class="btn btn-outline-light btn-sm me-2" href="{% url 'students:lookup' %}">Student Lookup</a>
+                        <a class="btn btn-outline-light btn-sm me-2" href="{% url 'accounts:manage_staff' %}">Manage Staff</a>
+                        <a class="btn btn-outline-light btn-sm me-2" href="{% url 'students:manage_departments' %}">Manage Departments</a>
                     {% endif %}
                     {% if user.is_student %}
                         <a class="btn btn-outline-light btn-sm me-2" href="{% url 'courses:register' %}">Register for Courses</a>
                         <a class="btn btn-outline-light btn-sm me-2" href="{% url 'courses:my_registrations' %}">My Registrations</a>
+                        <a class="btn btn-outline-light btn-sm me-2" href="{% url 'students:my_profile' %}">My Profile</a>
                     {% endif %}
                     {% if user.is_hod %}
                         <a class="btn btn-outline-light btn-sm me-2" href="{% url 'courses:manage_courses' %}">Manage Courses</a>
+                    {% endif %}
+                    {% if user.is_lecturer %}
+                        <a class="btn btn-outline-light btn-sm me-2" href="{% url 'courses:my_courses' %}">My Courses</a>
                     {% endif %}
                     <form method="post" action="{% url 'accounts:logout' %}" class="d-inline">
                         {% csrf_token %}

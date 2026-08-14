@@ -3,7 +3,7 @@ from django.contrib import messages
 from django.shortcuts import get_object_or_404, redirect, render
 from students.models import Department, LEVEL_CHOICES
 
-from accounts.decorators import hod_required, student_required
+from accounts.decorators import hod_required, lecturer_required, student_required
 
 from .forms import CourseForm, CourseSelectionForm
 from .models import Course, CourseRegistration
@@ -68,6 +68,12 @@ def my_registrations(request):
     profile = request.user.student_profile
     registrations = profile.registrations.select_related("course").order_by("-session", "semester")
     return render(request, "courses/my_registrations.html", {"registrations": registrations})
+
+
+@lecturer_required
+def my_courses(request):
+    courses = Course.objects.filter(lecturer=request.user)
+    return render(request, "courses/my_courses.html", {"courses": courses})
 
 
 def _hod_department(request):

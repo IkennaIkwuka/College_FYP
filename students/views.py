@@ -1,14 +1,14 @@
 import csv
 import io
 
-from accounts.decorators import admin_required
+from accounts.decorators import admin_required, student_required
 from django.conf import settings
 from django.contrib import messages
 from django.core.mail import send_mail
 from django.db import transaction
-from django.shortcuts import redirect, render
+from django.shortcuts import get_object_or_404, redirect, render
 
-from .forms import BulkImportForm
+from .forms import BulkImportForm, DepartmentForm, StudentProfileForm
 from .models import LEVEL_CHOICES, AdmissionRecord, Department, StudentProfile
 from .services import create_student_account, seed_admission_record
 
@@ -266,3 +266,57 @@ def seed_admissions(request):
         form = BulkImportForm()
 
     return render(request, "students/seed_admissions.html", {"form": form})
+
+
+@admin_required
+def manage_departments(request):
+    departments = Department.objects.all()
+    return render(request, "students/manage_departments.html", {"departments": departments})
+
+
+@admin_required
+def department_add(request):
+    if request.method == "POST":
+        form = DepartmentForm(request.POST)
+        if form.is_valid():
+            department = form.save()
+            messages.success(request, f"Added {department.name}.")
+            return redirect("students:manage_departments")
+    else:
+        form = DepartmentForm()
+
+    return render(request, "students/department_form.html", {"form": form, "title": "Add Department"})
+
+
+@admin_required
+def department_edit(request, pk):
+    department = get_object_or_404(Department, pk=pk)
+
+    if request.method == "POST":
+        form = DepartmentForm(request.POST, instance=department)
+        if form.is_valid():
+            form.save()
+            messages.success(request, f"Updated {department.name}.")
+            return redirect("students:manage_departments")
+    else:
+        form = DepartmentForm(instance=department)
+
+    return render(
+        request, "students/department_form.html", {"form": form, "title": f"Edit {department.name}"}
+    )
+
+
+@student_required
+def my_profile(request):
+    profile = request.user.student_profile
+
+    if request.method == "POST":
+        form = StudentProfileForm(request.POST, instance=profile)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Profile updated.")
+            return redirect("students:my_profile")
+    else:
+        form = StudentProfileForm(instance=profile)
+
+    return render(request, "students/my_profile.html", {"form": form, "profile": profile})

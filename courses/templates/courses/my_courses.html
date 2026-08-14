@@ -1,0 +1,44 @@
+{% extends "accounts/base.html" %}
+
+{% block title %}My Courses - LU-SIMS{% endblock %}
+
+{% block content %}
+    <h1>My Courses</h1>
+
+    {% if courses %}
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>Code</th>
+                    <th>Title</th>
+                    <th>Department</th>
+                    <th>Level</th>
+                    <th>Semester</th>
+                    <th>Units</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for course in courses %}
+                    <tr>
+                        <td>{{ course.code }}</td>
+                        <td>{{ course.title }}</td>
+                        <td>{{ course.department }}</td>
+                        <td>{{ course.get_level_display }}</td>
+                        <td>{{ course.get_semester_display }}</td>
+                        <td>{{ course.units }}</td>
+                        <td>
+                            {% if course.is_active %}
+                                <span class="badge bg-success">Active</span>
+                            {% else %}
+                                <span class="badge bg-secondary">Inactive</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% else %}
+        <p class="text-muted">No courses assigned to you yet.</p>
+    {% endif %}
+{% endblock %}

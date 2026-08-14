@@ -1,4 +1,4 @@
-from accounts.models import ADMIN_GROUP, User
+from accounts.models import ADMIN_GROUP, HOD_GROUP, User
 from django.conf import settings
 from django.contrib.auth.models import Group
 from django.core import mail
@@ -14,6 +14,12 @@ def make_admin():
     admin = User.objects.create_user(username="admin", email="admin@example.com", password="pass12345")
     admin.groups.add(Group.objects.get(name=ADMIN_GROUP))
     return admin
+
+
+def make_hod(username="hod1"):
+    hod = User.objects.create_user(username=username, email=f"{username}@example.com", password="pass12345")
+    hod.groups.add(Group.objects.get(name=HOD_GROUP))
+    return hod
 
 
 class BulkImportTests(TestCase):
@@ -213,3 +219,83 @@ class SeedAdmissionsTests(TestCase):
         )
         self._upload(content)
         self.assertEqual(AdmissionRecord.objects.count(), 0)
+
+
+class DepartmentManagementTests(TestCase):
+    def setUp(self):
+        self.department = Department.objects.create(name="Computer Science")
+        self.admin = make_admin()
+        self.client.login(username="admin", password="pass12345")
+
+    def test_manage_departments_lists_departments(self):
+        response = self.client.get(reverse("students:manage_departments"))
+        self.assertContains(response, "Computer Science")
+
+    def test_admin_can_add_department(self):
+        response = self.client.post(reverse("students:department_add"), {"name": "Physics", "hod": ""})
+        self.assertRedirects(response, reverse("students:manage_departments"))
+        self.assertTrue(Department.objects.filter(name="Physics").exists())
+
+    def test_admin_can_edit_department_and_assign_hod(self):
+        hod = make_hod()
+        response = self.client.post(
+            reverse("students:department_edit", args=[self.department.id]),
+            {"name": "Computer Science", "hod": hod.id},
+        )
+        self.assertRedirects(response, reverse("students:manage_departments"))
+        self.department.refresh_from_db()
+        self.assertEqual(self.department.hod, hod)
+
+    def test_hod_field_only_offers_hod_group_users(self):
+        make_hod()
+        non_hod = User.objects.create_user(username="lect1", email="lect1@example.com", password="pass12345")
+        response = self.client.get(reverse("students:department_add"))
+        hod_queryset = response.context["form"].fields["hod"].queryset
+        self.assertIn("hod1", hod_queryset.values_list("username", flat=True))
+        self.assertNotIn("lect1", hod_queryset.values_list("username", flat=True))
+
+    def test_non_admin_forbidden(self):
+        student = create_student_account(
+            matric_number="2023/CSC/090", first_name="A", last_name="B",
+            email="ab@example.com", department=self.department, entry_level=100,
+        )
+        student.user.must_change_password = False
+        student.user.save(update_fields=["must_change_password"])
+        self.client.login(username=student.user.username, password=settings.DEFAULT_PASSWORD)
+        for name in ["students:manage_departments", "students:department_add"]:
+            self.assertEqual(self.client.get(reverse(name)).status_code, 403, name)
+        self.assertEqual(
+            self.client.get(reverse("students:department_edit", args=[self.department.id])).status_code, 403
+        )
+
+
+class MyProfileTests(TestCase):
+    def setUp(self):
+        self.department = Department.objects.create(name="Computer Science")
+        self.profile = create_student_account(
+            matric_number="2023/CSC/091", first_name="Chidi", last_name="Nwosu",
+            email="chidi91@example.com", department=self.department, entry_level=200,
+        )
+        self.profile.user.must_change_password = False
+        self.profile.user.save(update_fields=["must_change_password"])
+        self.client.login(username=self.profile.user.username, password=settings.DEFAULT_PASSWORD)
+
+    def test_shows_own_academic_details(self):
+        response = self.client.get(reverse("students:my_profile"))
+        self.assertContains(response, "2023/CSC/091")
+        self.assertContains(response, "Computer Science")
+
+    def test_can_update_personal_details(self):
+        response = self.client.post(
+            reverse("students:my_profile"),
+            {"date_of_birth": "2000-01-01", "gender": "M", "phone_number": "08012345678", "address": "Okija"},
+        )
+        self.assertRedirects(response, reverse("students:my_profile"))
+        self.profile.refresh_from_db()
+        self.assertEqual(self.profile.phone_number, "08012345678")
+        self.assertEqual(self.profile.address, "Okija")
+
+    def test_non_student_forbidden(self):
+        make_admin()
+        self.client.login(username="admin", password="pass12345")
+        self.assertEqual(self.client.get(reverse("students:my_profile")).status_code, 403)

@@ -1,0 +1,33 @@
+{% extends "accounts/base.html" %}
+
+{% block title %}Manage Staff - LU-SIMS{% endblock %}
+
+{% block content %}
+    <h1>Manage Staff</h1>
+    <a href="{% url 'accounts:staff_add' %}" class="btn btn-primary mb-3">Add Staff</a>
+
+    {% if staff_users %}
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Email</th>
+                    <th>Role</th>
+                    <th>Staff ID</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for staff_user in staff_users %}
+                    <tr>
+                        <td>{{ staff_user.get_full_name|default:staff_user.username }}</td>
+                        <td>{{ staff_user.email }}</td>
+                        <td>{{ staff_user.groups.first|default:"-" }}</td>
+                        <td>{{ staff_user.staff_id|default:"-" }}</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% else %}
+        <p class="text-muted">No staff accounts yet.</p>
+    {% endif %}
+{% endblock %}

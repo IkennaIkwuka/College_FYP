@@ -1,4 +1,4 @@
-from accounts.models import HOD_GROUP, User
+from accounts.models import HOD_GROUP, LECTURER_GROUP, User
 from django.conf import settings
 from django.contrib.auth.models import Group
 from django.test import TestCase, override_settings
@@ -18,6 +18,12 @@ def make_hod(username, department=None):
         department.hod = hod
         department.save(update_fields=["hod"])
     return hod
+
+
+def make_lecturer(username):
+    lecturer = User.objects.create_user(username=username, email=f"{username}@example.com", password="pass12345")
+    lecturer.groups.add(Group.objects.get(name=LECTURER_GROUP))
+    return lecturer
 
 
 def make_student(matric_number, department, level):
@@ -219,4 +225,33 @@ class ManageCoursesTests(TestCase):
         make_admin()
         self.client.login(username="admin", password="pass12345")
         response = self.client.get(reverse("courses:manage_courses"))
+        self.assertEqual(response.status_code, 403)
+
+
+class MyCoursesTests(TestCase):
+    def setUp(self):
+        self.department = Department.objects.create(name="Computer Science")
+        self.lecturer = make_lecturer("lect1")
+        self.other_lecturer = make_lecturer("lect2")
+
+        self.own_course = Course.objects.create(
+            code="CSC301", title="Algorithms", units=3,
+            department=self.department, level=300, semester="first", lecturer=self.lecturer,
+        )
+        self.other_course = Course.objects.create(
+            code="CSC302", title="Compilers", units=3,
+            department=self.department, level=300, semester="first", lecturer=self.other_lecturer,
+        )
+
+        self.client.login(username="lect1", password="pass12345")
+
+    def test_lists_only_own_courses(self):
+        response = self.client.get(reverse("courses:my_courses"))
+        self.assertContains(response, "CSC301")
+        self.assertNotContains(response, "CSC302")
+
+    def test_non_lecturer_gets_403(self):
+        make_admin()
+        self.client.login(username="admin", password="pass12345")
+        response = self.client.get(reverse("courses:my_courses"))
         self.assertEqual(response.status_code, 403)

@@ -19,7 +19,17 @@ from .decorators import (
     registrar_required,
     student_required,
 )
-from .forms import ChangePasswordForm, LoginForm, MatricLookupForm, PinForm, SelfRegisterPasswordForm, StudentAccountForm
+from .forms import (
+    ChangePasswordForm,
+    LoginForm,
+    MatricLookupForm,
+    PinForm,
+    SelfRegisterPasswordForm,
+    StaffAccountForm,
+    StudentAccountForm,
+)
+from .models import User
+from .services import assign_staff_identity
 
 
 @admin_required
@@ -47,6 +57,41 @@ def register(request):
     return render(
         request,
         "accounts/register.html",
+        {"form": form, "default_password": settings.DEFAULT_PASSWORD},
+    )
+
+
+@admin_required
+def manage_staff(request):
+    staff_users = User.objects.filter(groups__name__in=StaffAccountForm.base_fields["group"].queryset.values_list("name", flat=True)).distinct()
+    return render(request, "accounts/manage_staff.html", {"staff_users": staff_users})
+
+
+@admin_required
+def staff_add(request):
+    if request.method == "POST":
+        form = StaffAccountForm(request.POST)
+        if form.is_valid():
+            user = User(
+                first_name=form.cleaned_data["first_name"],
+                last_name=form.cleaned_data["last_name"],
+                email=form.cleaned_data["email"],
+            )
+            assign_staff_identity(user)
+            user.save()
+            user.groups.add(form.cleaned_data["group"])
+            messages.success(
+                request,
+                f'Staff account created. Username is "{user.username}"; '
+                f'initial password is "{settings.DEFAULT_PASSWORD}".',
+            )
+            return redirect("accounts:manage_staff")
+    else:
+        form = StaffAccountForm()
+
+    return render(
+        request,
+        "accounts/staff_form.html",
         {"form": form, "default_password": settings.DEFAULT_PASSWORD},
     )
 

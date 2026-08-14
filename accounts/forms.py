@@ -1,10 +1,13 @@
 from django import forms
 from django.contrib.auth.forms import AuthenticationForm, SetPasswordForm
+from django.contrib.auth.models import Group
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
 from students.models import LEVEL_CHOICES, Department, StudentProfile
 
-from .models import User
+from .models import ADMIN_GROUP, BURSAR_GROUP, DEAN_GROUP, HOD_GROUP, LECTURER_GROUP, REGISTRAR_GROUP, User
+
+STAFF_GROUPS = [ADMIN_GROUP, HOD_GROUP, LECTURER_GROUP, REGISTRAR_GROUP, BURSAR_GROUP, DEAN_GROUP]
 
 
 class BootstrapFormMixin:
@@ -48,6 +51,19 @@ class StudentAccountForm(BootstrapFormMixin, forms.Form):
         if StudentProfile.objects.filter(matric_number=matric_number).exists():
             raise forms.ValidationError("A student with this matric number already exists.")
         return matric_number
+
+    def clean_email(self):
+        email = self.cleaned_data["email"].strip().lower()
+        if User.objects.filter(email__iexact=email).exists():
+            raise forms.ValidationError("A user with this email already exists.")
+        return email
+
+
+class StaffAccountForm(BootstrapFormMixin, forms.Form):
+    first_name = forms.CharField(max_length=150)
+    last_name = forms.CharField(max_length=150)
+    email = forms.EmailField()
+    group = forms.ModelChoiceField(queryset=Group.objects.filter(name__in=STAFF_GROUPS), label="Role")
 
     def clean_email(self):
         email = self.cleaned_data["email"].strip().lower()

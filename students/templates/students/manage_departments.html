@@ -1,0 +1,33 @@
+{% extends "accounts/base.html" %}
+
+{% block title %}Manage Departments - LU-SIMS{% endblock %}
+
+{% block content %}
+    <h1>Manage Departments</h1>
+    <a href="{% url 'students:department_add' %}" class="btn btn-primary mb-3">Add Department</a>
+
+    {% if departments %}
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>HOD</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for department in departments %}
+                    <tr>
+                        <td>{{ department.name }}</td>
+                        <td>{{ department.hod|default:"Unassigned" }}</td>
+                        <td class="text-end">
+                            <a href="{% url 'students:department_edit' department.id %}" class="btn btn-outline-secondary btn-sm">Edit</a>
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% else %}
+        <p class="text-muted">No departments yet.</p>
+    {% endif %}
+{% endblock %}

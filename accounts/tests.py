@@ -131,7 +131,14 @@ class AdminOnlyViewsTests(TestCase):
 
     def test_non_admin_forbidden(self):
         self.client.login(username=self.student_profile.user.username, password=settings.DEFAULT_PASSWORD)
-        for name in ["accounts:register", "students:bulk_import", "students:lookup", "students:seed_admissions"]:
+        for name in [
+            "accounts:register",
+            "students:bulk_import",
+            "students:lookup",
+            "students:seed_admissions",
+            "accounts:manage_staff",
+            "accounts:staff_add",
+        ]:
             self.assertEqual(self.client.get(reverse(name)).status_code, 403, name)
 
     def test_admin_can_add_student(self):
@@ -149,6 +156,22 @@ class AdminOnlyViewsTests(TestCase):
         )
         self.assertRedirects(response, reverse("accounts:register"))
         self.assertTrue(StudentProfile.objects.filter(matric_number="2023/CSC/099").exists())
+
+    def test_admin_can_add_staff(self):
+        self.client.login(username="admin", password="pass12345")
+        response = self.client.post(
+            reverse("accounts:staff_add"),
+            {
+                "first_name": "New",
+                "last_name": "Lecturer",
+                "email": "newlect@example.com",
+                "group": Group.objects.get(name=LECTURER_GROUP).id,
+            },
+        )
+        self.assertRedirects(response, reverse("accounts:manage_staff"))
+        new_staff = User.objects.get(email="newlect@example.com")
+        self.assertTrue(new_staff.staff_id)
+        self.assertTrue(new_staff.groups.filter(name=LECTURER_GROUP).exists())
 
 
 class StaffIdentityTests(TestCase):
