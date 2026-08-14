@@ -11,34 +11,36 @@
         </div>
     </form>
 
-    {% if profiles is not None %}
-        {% if profiles %}
-            <table class="table table-striped">
-                <thead>
+    {% if profiles %}
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>Matric number</th>
+                    <th>Name</th>
+                    <th>Department</th>
+                    <th>Current Level</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for profile in profiles %}
                     <tr>
-                        <th>Matric number</th>
-                        <th>Name</th>
-                        <th>Department</th>
-                        <th>Current Level</th>
-                        <th></th>
+                        <td>{{ profile.matric_number }}</td>
+                        <td>{{ profile.user.get_full_name|default:profile.user.username }}</td>
+                        <td>{{ profile.department }}</td>
+                        <td>{{ profile.current_level_display }}</td>
+                        <td class="text-end">
+                            <a href="{% url 'students:student_edit' profile.id %}" class="btn btn-outline-secondary btn-sm">Edit</a>
+                        </td>
                     </tr>
-                </thead>
-                <tbody>
-                    {% for profile in profiles %}
-                        <tr>
-                            <td>{{ profile.matric_number }}</td>
-                            <td>{{ profile.user.get_full_name|default:profile.user.username }}</td>
-                            <td>{{ profile.department }}</td>
-                            <td>{{ profile.current_level_display }}</td>
-                            <td class="text-end">
-                                <a href="{% url 'students:student_edit' profile.id %}" class="btn btn-outline-secondary btn-sm">Edit</a>
-                            </td>
-                        </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        {% else %}
+                {% endfor %}
+            </tbody>
+        </table>
+    {% else %}
+        {% if query %}
             <p class="text-muted">No students found matching "{{ query }}".</p>
+        {% else %}
+            <p class="text-muted">No students yet.</p>
         {% endif %}
     {% endif %}
 {% endblock %}

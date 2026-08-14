@@ -221,9 +221,9 @@ def department_edit(request, pk):
 @registrar_required
 def manage_students(request):
     query = request.GET.get("q", "").strip()
-    profiles = None
+    profiles = StudentProfile.objects.select_related("user", "department")
     if query:
-        profiles = StudentProfile.objects.select_related("user", "department").filter(
+        profiles = profiles.filter(
             Q(matric_number__icontains=query)
             | Q(user__first_name__icontains=query)
             | Q(user__last_name__icontains=query)

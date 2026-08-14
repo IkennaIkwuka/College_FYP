@@ -225,10 +225,10 @@ class ManageStudentsTests(TestCase):
         self.assertContains(response, "Bassey")
         self.assertNotContains(response, "Ifeoma")
 
-    def test_no_query_shows_nothing(self):
+    def test_no_query_shows_all_students(self):
         response = self.client.get(reverse("students:manage_students"))
-        self.assertNotContains(response, "Ifeoma")
-        self.assertNotContains(response, "Bassey")
+        self.assertContains(response, "Ifeoma")
+        self.assertContains(response, "Bassey")
 
     def test_registrar_can_edit_student(self):
         response = self.client.post(
