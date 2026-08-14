@@ -17,6 +17,7 @@
                 <h2 class="h4">{{ profile.user.get_full_name|default:profile.user.username }}</h2>
                 <table class="table table-sm w-auto">
                     <tr><th>Matric number</th><td>{{ profile.matric_number }}</td></tr>
+                    <tr><th>Username</th><td>{{ profile.user.username }}</td></tr>
                     <tr><th>Email</th><td>{{ profile.user.email }}</td></tr>
                     <tr><th>Department</th><td>{{ profile.department }}</td></tr>
                     <tr><th>Entry Level</th><td>{{ profile.get_entry_level_display }}</td></tr>

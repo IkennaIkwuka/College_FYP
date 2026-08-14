@@ -57,7 +57,8 @@ def register(request):
             messages.success(
                 request,
                 f"Student {form.cleaned_data['matric_number']} added. "
-                f"Their initial password is \"{settings.DEFAULT_PASSWORD}\".",
+                f'Their username is "{profile.user.username}"; '
+                f"initial password is \"{settings.DEFAULT_PASSWORD}\".",
             )
             return redirect("accounts:register")
     else:
