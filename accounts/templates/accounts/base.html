@@ -13,6 +13,7 @@
             <div class="d-flex align-items-center flex-wrap">
                 {% if user.is_authenticated %}
                     <span class="navbar-text text-light me-3">Signed in as {{ user.username }}</span>
+                    <a class="btn btn-outline-light btn-sm me-2" href="{% url 'dashboard' %}">Home</a>
                     {% if user.is_admin %}
                         <a class="btn btn-outline-light btn-sm me-2" href="{% url 'accounts:register' %}">Add Student</a>
                         <a class="btn btn-outline-light btn-sm me-2" href="{% url 'students:bulk_import' %}">Bulk Import</a>
