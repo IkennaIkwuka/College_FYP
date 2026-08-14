@@ -1,0 +1,44 @@
+{% extends "accounts/base.html" %}
+
+{% block title %}Manage Students - LU-SIMS{% endblock %}
+
+{% block content %}
+    <h1>Manage Students</h1>
+    <form method="get" class="mb-4">
+        <div class="input-group" style="max-width: 400px;">
+            <input type="text" name="q" value="{{ query }}" placeholder="Matric number or name" class="form-control">
+            <button type="submit" class="btn btn-primary">Search</button>
+        </div>
+    </form>
+
+    {% if profiles is not None %}
+        {% if profiles %}
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>Matric number</th>
+                        <th>Name</th>
+                        <th>Department</th>
+                        <th>Current Level</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for profile in profiles %}
+                        <tr>
+                            <td>{{ profile.matric_number }}</td>
+                            <td>{{ profile.user.get_full_name|default:profile.user.username }}</td>
+                            <td>{{ profile.department }}</td>
+                            <td>{{ profile.current_level_display }}</td>
+                            <td class="text-end">
+                                <a href="{% url 'students:student_edit' profile.id %}" class="btn btn-outline-secondary btn-sm">Edit</a>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% else %}
+            <p class="text-muted">No students found matching "{{ query }}".</p>
+        {% endif %}
+    {% endif %}
+{% endblock %}

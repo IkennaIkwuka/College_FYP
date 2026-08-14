@@ -19,3 +19,10 @@ class StudentProfileForm(BootstrapFormMixin, forms.ModelForm):
         model = StudentProfile
         fields = ["date_of_birth", "gender", "phone_number", "address"]
         widgets = {"date_of_birth": forms.DateInput(attrs={"type": "date"})}
+
+
+class StudentEditForm(BootstrapFormMixin, forms.ModelForm):
+    class Meta:
+        model = StudentProfile
+        fields = ["matric_number", "department", "entry_level", "date_of_birth", "gender", "phone_number", "address"]
+        widgets = {"date_of_birth": forms.DateInput(attrs={"type": "date"})}

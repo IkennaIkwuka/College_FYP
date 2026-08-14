@@ -142,6 +142,11 @@ class AdminOnlyViewsTests(TestCase):
         ]:
             self.assertEqual(self.client.get(reverse(name)).status_code, 403, name)
 
+        staff = make_hod(username="hod_for_forbidden_test")
+        self.assertEqual(
+            self.client.get(reverse("accounts:staff_edit", args=[staff.id])).status_code, 403
+        )
+
     def test_admin_can_add_student(self):
         self.client.login(username="admin", password="pass12345")
         response = self.client.post(
@@ -175,6 +180,56 @@ class AdminOnlyViewsTests(TestCase):
         new_staff = User.objects.get(email="newlect@example.com")
         self.assertTrue(new_staff.staff_id)
         self.assertTrue(new_staff.groups.filter(name=LECTURER_GROUP).exists())
+
+    def test_admin_can_edit_staff(self):
+        staff = make_hod(username="hodtoedit")
+        self.client.login(username="admin", password="pass12345")
+        response = self.client.post(
+            reverse("accounts:staff_edit", args=[staff.id]),
+            {
+                "first_name": "Updated",
+                "last_name": "Name",
+                "email": staff.email,
+                "is_active": "on",
+                "group": Group.objects.get(name=LECTURER_GROUP).id,
+            },
+        )
+        self.assertRedirects(response, reverse("accounts:manage_staff"))
+        staff.refresh_from_db()
+        self.assertEqual(staff.first_name, "Updated")
+        self.assertTrue(staff.groups.filter(name=LECTURER_GROUP).exists())
+        self.assertFalse(staff.groups.filter(name=HOD_GROUP).exists())
+
+    def test_editing_staff_does_not_flag_own_unchanged_email(self):
+        staff = make_hod(username="hodkeepemail")
+        self.client.login(username="admin", password="pass12345")
+        response = self.client.post(
+            reverse("accounts:staff_edit", args=[staff.id]),
+            {
+                "first_name": staff.first_name,
+                "last_name": staff.last_name,
+                "email": staff.email,
+                "is_active": "on",
+                "group": Group.objects.get(name=HOD_GROUP).id,
+            },
+        )
+        self.assertRedirects(response, reverse("accounts:manage_staff"))
+
+    def test_deactivated_staff_cannot_log_in(self):
+        staff = make_hod(username="hodtodeactivate")
+        self.client.login(username="admin", password="pass12345")
+        self.client.post(
+            reverse("accounts:staff_edit", args=[staff.id]),
+            {
+                "first_name": staff.first_name,
+                "last_name": staff.last_name,
+                "email": staff.email,
+                "group": Group.objects.get(name=HOD_GROUP).id,
+                # is_active omitted - unchecked checkbox
+            },
+        )
+        self.client.logout()
+        self.assertFalse(self.client.login(username="hodtodeactivate", password="pass12345"))
 
 
 class StaffIdentityTests(TestCase):

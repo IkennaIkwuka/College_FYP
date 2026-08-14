@@ -2,9 +2,10 @@ from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth import views as auth_views
 from django.contrib.auth.decorators import login_required
+from django.contrib.auth.models import Group
 from django.core.exceptions import PermissionDenied
 from django.core.mail import send_mail
-from django.shortcuts import redirect, render
+from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse_lazy
 
 from students.services import create_student_account
@@ -18,7 +19,7 @@ from .decorators import (
     registrar_required,
     student_required,
 )
-from .forms import ChangePasswordForm, LoginForm, StaffAccountForm, StudentAccountForm
+from .forms import STAFF_GROUPS, ChangePasswordForm, LoginForm, StaffAccountForm, StaffEditForm, StudentAccountForm
 from .models import User
 from .services import assign_staff_identity
 
@@ -73,7 +74,7 @@ def register(request):
 
 @admin_required
 def manage_staff(request):
-    staff_users = User.objects.filter(groups__name__in=StaffAccountForm.base_fields["group"].queryset.values_list("name", flat=True)).distinct()
+    staff_users = User.objects.filter(groups__name__in=STAFF_GROUPS).distinct()
     return render(request, "accounts/manage_staff.html", {"staff_users": staff_users})
 
 
@@ -103,6 +104,26 @@ def staff_add(request):
         request,
         "accounts/staff_form.html",
         {"form": form, "default_password": settings.DEFAULT_PASSWORD},
+    )
+
+
+@admin_required
+def staff_edit(request, pk):
+    staff_user = get_object_or_404(User, pk=pk, groups__name__in=STAFF_GROUPS)
+
+    if request.method == "POST":
+        form = StaffEditForm(request.POST, instance=staff_user)
+        if form.is_valid():
+            form.save()
+            staff_user.groups.remove(*Group.objects.filter(name__in=STAFF_GROUPS))
+            staff_user.groups.add(form.cleaned_data["group"])
+            messages.success(request, f"Updated {staff_user.get_full_name() or staff_user.username}.")
+            return redirect("accounts:manage_staff")
+    else:
+        form = StaffEditForm(instance=staff_user)
+
+    return render(
+        request, "accounts/staff_form.html", {"form": form, "title": f"Edit {staff_user.username}"}
     )
 
 

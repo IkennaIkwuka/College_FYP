@@ -1,14 +1,15 @@
 import csv
 import io
 
-from accounts.decorators import admin_required, student_required
+from accounts.decorators import admin_required, registrar_required, student_required
 from django.conf import settings
 from django.contrib import messages
 from django.core.mail import send_mail
 from django.db import transaction
+from django.db.models import Q
 from django.shortcuts import get_object_or_404, redirect, render
 
-from .forms import BulkImportForm, DepartmentForm, StudentProfileForm
+from .forms import BulkImportForm, DepartmentForm, StudentEditForm, StudentProfileForm
 from .models import LEVEL_CHOICES, Department, StudentProfile
 from .services import create_student_account
 
@@ -215,6 +216,35 @@ def department_edit(request, pk):
     return render(
         request, "students/department_form.html", {"form": form, "title": f"Edit {department.name}"}
     )
+
+
+@registrar_required
+def manage_students(request):
+    query = request.GET.get("q", "").strip()
+    profiles = None
+    if query:
+        profiles = StudentProfile.objects.select_related("user", "department").filter(
+            Q(matric_number__icontains=query)
+            | Q(user__first_name__icontains=query)
+            | Q(user__last_name__icontains=query)
+        )
+    return render(request, "students/manage_students.html", {"query": query, "profiles": profiles})
+
+
+@registrar_required
+def student_edit(request, pk):
+    profile = get_object_or_404(StudentProfile, pk=pk)
+
+    if request.method == "POST":
+        form = StudentEditForm(request.POST, instance=profile)
+        if form.is_valid():
+            form.save()
+            messages.success(request, f"Updated {profile.matric_number}.")
+            return redirect("students:manage_students")
+    else:
+        form = StudentEditForm(instance=profile)
+
+    return render(request, "students/student_form.html", {"form": form, "profile": profile})
 
 
 @student_required

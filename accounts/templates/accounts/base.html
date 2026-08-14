@@ -31,6 +31,9 @@
                     {% if user.is_lecturer %}
                         <a class="btn btn-outline-light btn-sm me-2" href="{% url 'courses:my_courses' %}">My Courses</a>
                     {% endif %}
+                    {% if user.is_registrar %}
+                        <a class="btn btn-outline-light btn-sm me-2" href="{% url 'students:manage_students' %}">Manage Students</a>
+                    {% endif %}
                     <form method="post" action="{% url 'accounts:logout' %}" class="d-inline">
                         {% csrf_token %}
                         <button type="submit" class="btn btn-outline-light btn-sm">Log out</button>

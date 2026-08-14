@@ -228,6 +228,43 @@ class ManageCoursesTests(TestCase):
         self.assertEqual(response.status_code, 403)
 
 
+class CourseRegistrationsViewTests(TestCase):
+    def setUp(self):
+        self.department = Department.objects.create(name="Computer Science")
+        self.other_department = Department.objects.create(name="Physics")
+        self.hod = make_hod("hod1", department=self.department)
+
+        self.own_course = Course.objects.create(
+            code="CSC301", title="Algorithms", units=3,
+            department=self.department, level=300, semester="first",
+        )
+        self.other_course = Course.objects.create(
+            code="PHY301", title="Mechanics", units=3,
+            department=self.other_department, level=300, semester="first",
+        )
+        self.student = make_student("2023/CSC/050", self.department, 300)
+        CourseRegistration.objects.create(
+            student=self.student, course=self.own_course,
+            session=settings.CURRENT_SESSION, semester="first",
+        )
+
+        self.client.login(username="hod1", password="pass12345")
+
+    def test_shows_registrations_for_own_course(self):
+        response = self.client.get(reverse("courses:course_registrations", args=[self.own_course.id]))
+        self.assertContains(response, "2023/CSC/050")
+
+    def test_other_departments_course_404s(self):
+        response = self.client.get(reverse("courses:course_registrations", args=[self.other_course.id]))
+        self.assertEqual(response.status_code, 404)
+
+    def test_non_hod_gets_403(self):
+        make_admin()
+        self.client.login(username="admin", password="pass12345")
+        response = self.client.get(reverse("courses:course_registrations", args=[self.own_course.id]))
+        self.assertEqual(response.status_code, 403)
+
+
 class MyCoursesTests(TestCase):
     def setUp(self):
         self.department = Department.objects.create(name="Computer Science")

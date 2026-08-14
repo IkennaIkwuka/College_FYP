@@ -103,3 +103,21 @@ class StaffAccountForm(BootstrapFormMixin, forms.Form):
         if User.objects.filter(email__iexact=email).exists():
             raise forms.ValidationError("A user with this email already exists.")
         return email
+
+
+class StaffEditForm(BootstrapFormMixin, forms.ModelForm):
+    # Separate from StaffAccountForm (create-only) rather than reused - a plain
+    # clean_email() uniqueness check would wrongly flag the user's own unchanged email
+    # as a duplicate. ModelForm handles "unique excluding this instance" for free.
+    group = forms.ModelChoiceField(queryset=Group.objects.filter(name__in=STAFF_GROUPS), label="Role")
+
+    class Meta:
+        model = User
+        fields = ["first_name", "last_name", "email", "is_active"]
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.instance.pk:
+            current_group = self.instance.groups.filter(name__in=STAFF_GROUPS).first()
+            if current_group:
+                self.fields["group"].initial = current_group

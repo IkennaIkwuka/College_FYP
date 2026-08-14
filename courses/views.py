@@ -132,6 +132,16 @@ def course_edit(request, pk):
 
 
 @hod_required
+def course_registrations(request, pk):
+    department = _hod_department(request)
+    course = get_object_or_404(Course, pk=pk, department=department)
+    registrations = course.registrations.select_related("student__user").order_by("-session", "semester")
+    return render(
+        request, "courses/course_registrations.html", {"course": course, "registrations": registrations}
+    )
+
+
+@hod_required
 def course_toggle_active(request, pk):
     department = _hod_department(request)
     course = get_object_or_404(Course, pk=pk, department=department)

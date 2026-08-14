@@ -1,4 +1,4 @@
-from accounts.models import ADMIN_GROUP, HOD_GROUP, User
+from accounts.models import ADMIN_GROUP, HOD_GROUP, REGISTRAR_GROUP, User
 from django.conf import settings
 from django.contrib.auth.models import Group
 from django.core import mail
@@ -20,6 +20,12 @@ def make_hod(username="hod1"):
     hod = User.objects.create_user(username=username, email=f"{username}@example.com", password="pass12345")
     hod.groups.add(Group.objects.get(name=HOD_GROUP))
     return hod
+
+
+def make_registrar(username="reg1"):
+    registrar = User.objects.create_user(username=username, email=f"{username}@example.com", password="pass12345")
+    registrar.groups.add(Group.objects.get(name=REGISTRAR_GROUP))
+    return registrar
 
 
 class BulkImportTests(TestCase):
@@ -192,3 +198,59 @@ class MyProfileTests(TestCase):
         make_admin()
         self.client.login(username="admin", password="pass12345")
         self.assertEqual(self.client.get(reverse("students:my_profile")).status_code, 403)
+
+
+class ManageStudentsTests(TestCase):
+    def setUp(self):
+        self.department = Department.objects.create(name="Computer Science")
+        self.other_department = Department.objects.create(name="Physics")
+        self.profile, _ = create_student_account(
+            matric_number="2023/CSC/095", first_name="Ifeoma", last_name="Obiora",
+            email="ifeoma95@example.com", department=self.department, entry_level=200,
+        )
+        self.other_profile, _ = create_student_account(
+            matric_number="2023/PHY/010", first_name="Bassey", last_name="Udoh",
+            email="bassey10@example.com", department=self.other_department, entry_level=100,
+        )
+        make_registrar()
+        self.client.login(username="reg1", password="pass12345")
+
+    def test_search_by_matric_number(self):
+        response = self.client.get(reverse("students:manage_students"), {"q": "2023/CSC/095"})
+        self.assertContains(response, "Ifeoma")
+        self.assertNotContains(response, "Bassey")
+
+    def test_search_by_name(self):
+        response = self.client.get(reverse("students:manage_students"), {"q": "Udoh"})
+        self.assertContains(response, "Bassey")
+        self.assertNotContains(response, "Ifeoma")
+
+    def test_no_query_shows_nothing(self):
+        response = self.client.get(reverse("students:manage_students"))
+        self.assertNotContains(response, "Ifeoma")
+        self.assertNotContains(response, "Bassey")
+
+    def test_registrar_can_edit_student(self):
+        response = self.client.post(
+            reverse("students:student_edit", args=[self.profile.id]),
+            {
+                "matric_number": "2023/CSC/095",
+                "department": self.department.id,
+                "entry_level": 200,
+                "date_of_birth": "",
+                "gender": "",
+                "phone_number": "08011112222",
+                "address": "Awka",
+            },
+        )
+        self.assertRedirects(response, reverse("students:manage_students"))
+        self.profile.refresh_from_db()
+        self.assertEqual(self.profile.phone_number, "08011112222")
+
+    def test_non_registrar_forbidden(self):
+        make_admin()
+        self.client.login(username="admin", password="pass12345")
+        self.assertEqual(self.client.get(reverse("students:manage_students")).status_code, 403)
+        self.assertEqual(
+            self.client.get(reverse("students:student_edit", args=[self.profile.id])).status_code, 403
+        )
