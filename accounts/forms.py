@@ -10,12 +10,19 @@ STAFF_GROUPS = [ADMIN_GROUP, HOD_GROUP, LECTURER_GROUP, REGISTRAR_GROUP, BURSAR_
 
 
 class BootstrapFormMixin:
-    """Adds Bootstrap's form-control/form-select classes to every field's widget."""
+    """Adds Bootstrap's form-control/form-select/form-check-input classes to every field's widget."""
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         for field in self.fields.values():
-            css_class = "form-select" if isinstance(field.widget, (forms.Select, forms.SelectMultiple)) else "form-control"
+            if isinstance(field.widget, (forms.Select, forms.SelectMultiple)):
+                css_class = "form-select"
+            elif isinstance(field.widget, forms.CheckboxInput):
+                # form-control stretches a checkbox into a full-width block instead of a
+                # normal small checkbox - Bootstrap's own class for a bare checkbox input.
+                css_class = "form-check-input"
+            else:
+                css_class = "form-control"
             existing = field.widget.attrs.get("class", "")
             field.widget.attrs["class"] = f"{existing} {css_class}".strip()
 
