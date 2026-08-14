@@ -10,12 +10,16 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 
+import os
 from pathlib import Path
 
 from django.contrib.messages import constants as messages
+from dotenv import load_dotenv
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+load_dotenv(BASE_DIR / '.env')
 
 
 # Quick-start development settings - unsuitable for production
@@ -50,11 +54,10 @@ LOGIN_URL = 'login'
 LOGIN_REDIRECT_URL = 'dashboard'
 LOGOUT_REDIRECT_URL = 'login'
 
-# Initial password for admin-created accounts - students created via Add Student/Bulk
-# Import, and staff created via Django admin. Forced change on first login. Bump this
-# every academic year, e.g. 'lu2027' for the 2027 intake. Students who self-register
-# instead (see accounts self-registration views) choose their own password up front
-# and never get this one.
+# Initial password for every admin-created account - students via Add Student/Bulk
+# Import, staff via Manage Staff or Django admin. Forced change on first login (students
+# also need the PIN emailed to them at creation time - see StudentProfile.pin_hash).
+# Bump this every academic year, e.g. 'lu2027' for the 2027 intake.
 DEFAULT_PASSWORD = 'lu2026'
 
 # Academic session students register courses under. Bump this every academic year,
@@ -65,14 +68,20 @@ CURRENT_SESSION = '2025/2026'
 # 'second' at each actual semester changeover (twice a year, unlike CURRENT_SESSION).
 CURRENT_SEMESTER = 'first'
 
-# Prints emails to the console instead of actually sending them - fine for local dev/demo
-# where self-registration PINs just need to be testable. Swap for a real SMTP backend
-# before this ever needs to reach a real inbox.
-EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
-DEFAULT_FROM_EMAIL = 'no-reply@lu-sims.local'
+# Defaults to the console backend (prints instead of sending) unless real SMTP settings
+# are supplied via .env - see .env.example. Nothing here changes local dev behavior until
+# a .env is deliberately created with real values for an actual deployment.
+EMAIL_BACKEND = os.environ.get('EMAIL_BACKEND', 'django.core.mail.backends.console.EmailBackend')
+EMAIL_HOST = os.environ.get('EMAIL_HOST', '')
+EMAIL_PORT = int(os.environ.get('EMAIL_PORT', '587'))
+EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', '')
+EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')
+EMAIL_USE_TLS = os.environ.get('EMAIL_USE_TLS', 'True') == 'True'
+DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'no-reply@lu-sims.local')
 
-# Self-registration PIN policy (students.models.AdmissionRecord) - lock a record out
-# after this many wrong PIN attempts, for this long, to resist brute-forcing a 6-digit PIN.
+# PIN policy for the first-login identity check (students.models.StudentProfile) - lock
+# the account out of retrying after this many wrong PIN attempts, for this long, to
+# resist brute-forcing a 6-digit PIN.
 PIN_MAX_ATTEMPTS = 5
 PIN_LOCKOUT_MINUTES = 15
 
