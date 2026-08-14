@@ -1,7 +1,6 @@
 from django import forms
 from django.contrib.auth.forms import AuthenticationForm, SetPasswordForm
 from django.contrib.auth.models import Group
-from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
 from students.models import LEVEL_CHOICES, Department, StudentProfile
 
@@ -33,9 +32,43 @@ class ChangePasswordForm(BootstrapFormMixin, SetPasswordForm):
     it fits here too, since a first-time login already proves who they are via the
     default password, and asking them to also type that default password back in
     as "confirm your old password" would just be an extra step for no real benefit.
+
+    For students specifically, a PIN field is added on top - the shared default
+    password alone doesn't prove they own the email it was set up for, so a PIN
+    emailed at account-creation time closes that gap before letting them replace it
+    with something only they know. Staff accounts have no student_profile, so they
+    get no PIN field at all - this form behaves exactly as it always has for them.
     """
 
-    pass
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.student_profile = getattr(self.user, "student_profile", None)
+        if self.student_profile is not None:
+            self.fields["pin"] = forms.CharField(
+                max_length=6, label="PIN", widget=forms.PasswordInput(render_value=False)
+            )
+            self.fields["pin"].widget.attrs["class"] = "form-control"
+
+    def clean(self):
+        cleaned = super().clean()
+        if self.student_profile is not None:
+            # Lazily clear an expired lockout - no cron/Celery needed, the next attempt
+            # after the cooldown passes just resets the counter right here.
+            if self.student_profile.pin_locked_until is not None and not self.student_profile.is_pin_locked:
+                self.student_profile.reset_pin_attempts()
+
+            if self.student_profile.is_pin_locked:
+                raise ValidationError("Too many wrong PIN attempts. Try again later.")
+
+            pin = cleaned.get("pin")
+            if pin and not self.student_profile.check_pin(pin):
+                self.student_profile.register_failed_pin_attempt()
+                if self.student_profile.is_pin_locked:
+                    raise ValidationError("Too many wrong PIN attempts. Try again later.")
+                self.add_error("pin", "Incorrect PIN.")
+            elif pin:
+                self.student_profile.reset_pin_attempts()
+        return cleaned
 
 
 class StudentAccountForm(BootstrapFormMixin, forms.Form):
@@ -70,55 +103,3 @@ class StaffAccountForm(BootstrapFormMixin, forms.Form):
         if User.objects.filter(email__iexact=email).exists():
             raise forms.ValidationError("A user with this email already exists.")
         return email
-
-
-class MatricLookupForm(BootstrapFormMixin, forms.Form):
-    """Step 1 of self-registration - just normalizes the input. The actual
-    AdmissionRecord lookup happens in the view, not here, since a not-found result
-    needs to become a generic form error rather than a per-field validation error."""
-
-    matric_number = forms.CharField(max_length=20, label="Matric Number")
-
-    def clean_matric_number(self):
-        return self.cleaned_data["matric_number"].strip().upper()
-
-
-class PinForm(BootstrapFormMixin, forms.Form):
-    pin = forms.CharField(max_length=6, label="PIN", widget=forms.PasswordInput(render_value=False))
-
-
-class SelfRegisterPasswordForm(BootstrapFormMixin, forms.Form):
-    """Step 3 of self-registration. Deliberately not SetPasswordForm/ChangePasswordForm -
-    those bind to an already-saved User and call user.save() themselves, but at this
-    point in the flow no User exists yet (it gets created in one shot, alongside the
-    chosen password, once this form validates)."""
-
-    password1 = forms.CharField(widget=forms.PasswordInput, label="New password")
-    password2 = forms.CharField(widget=forms.PasswordInput, label="Confirm password")
-
-    def __init__(self, *args, record, **kwargs):
-        self.record = record
-        super().__init__(*args, **kwargs)
-
-    def clean(self):
-        cleaned = super().clean()
-        password1 = cleaned.get("password1")
-        password2 = cleaned.get("password2")
-        if password1 and password2 and password1 != password2:
-            self.add_error("password2", "Passwords don't match.")
-        elif password1:
-            # No real User exists yet at this point, so build an unsaved stand-in from
-            # the admission record's details purely so UserAttributeSimilarityValidator
-            # has something to compare against - the same check an existing account's
-            # password change already gets via ChangePasswordForm.
-            dummy_user = User(
-                username=self.record.matric_number.replace("/", ""),
-                email=self.record.email,
-                first_name=self.record.first_name,
-                last_name=self.record.last_name,
-            )
-            try:
-                validate_password(password1, user=dummy_user)
-            except ValidationError as e:
-                self.add_error("password1", e)
-        return cleaned

@@ -1,9 +1,10 @@
 from django.conf import settings
 from django.contrib.auth.models import Group
+from django.core import mail
 from django.test import TestCase
 from django.urls import reverse
-from students.models import AdmissionRecord, Department, StudentProfile
-from students.services import create_student_account, seed_admission_record
+from students.models import Department, StudentProfile
+from students.services import create_student_account
 
 from .models import ADMIN_GROUP, BURSAR_GROUP, DEAN_GROUP, HOD_GROUP, LECTURER_GROUP, REGISTRAR_GROUP, User
 from .services import assign_staff_identity
@@ -48,7 +49,7 @@ def make_dean(username="dean1"):
 class LoginTests(TestCase):
     def setUp(self):
         self.department = Department.objects.create(name="Computer Science")
-        self.profile = create_student_account(
+        self.profile, self.pin = create_student_account(
             matric_number="2023/CSC/030",
             first_name="Jane",
             last_name="Doe",
@@ -72,7 +73,7 @@ class LoginTests(TestCase):
 class ForcedPasswordChangeTests(TestCase):
     def setUp(self):
         self.department = Department.objects.create(name="Computer Science")
-        self.profile = create_student_account(
+        self.profile, self.pin = create_student_account(
             matric_number="2023/CSC/031",
             first_name="John",
             last_name="Smith",
@@ -93,6 +94,7 @@ class ForcedPasswordChangeTests(TestCase):
             {
                 "new_password1": "N3wPassw0rd!",
                 "new_password2": "N3wPassw0rd!",
+                "pin": self.pin,
             },
         )
         self.profile.user.refresh_from_db()
@@ -104,7 +106,7 @@ class ForcedPasswordChangeTests(TestCase):
         # it clears the length requirement on its own.
         response = self.client.post(
             reverse("accounts:change_password"),
-            {"new_password1": "weakpassword", "new_password2": "weakpassword"},
+            {"new_password1": "weakpassword", "new_password2": "weakpassword", "pin": self.pin},
         )
         self.profile.user.refresh_from_db()
         self.assertEqual(response.status_code, 200)
@@ -116,7 +118,7 @@ class AdminOnlyViewsTests(TestCase):
         self.department = Department.objects.create(name="Computer Science")
         self.admin_user = make_admin()
 
-        self.student_profile = create_student_account(
+        self.student_profile, _ = create_student_account(
             matric_number="2023/CSC/032",
             first_name="Ann",
             last_name="Lee",
@@ -135,7 +137,6 @@ class AdminOnlyViewsTests(TestCase):
             "accounts:register",
             "students:bulk_import",
             "students:lookup",
-            "students:seed_admissions",
             "accounts:manage_staff",
             "accounts:staff_add",
         ]:
@@ -156,6 +157,8 @@ class AdminOnlyViewsTests(TestCase):
         )
         self.assertRedirects(response, reverse("accounts:register"))
         self.assertTrue(StudentProfile.objects.filter(matric_number="2023/CSC/099").exists())
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertIn("PIN", mail.outbox[0].subject)
 
     def test_admin_can_add_staff(self):
         self.client.login(username="admin", password="pass12345")
@@ -220,68 +223,10 @@ class AdminStaffCreationTests(TestCase):
         self.assertTrue(user.groups.filter(name=LECTURER_GROUP).exists())
 
 
-class SelfRegistrationTests(TestCase):
-    def setUp(self):
-        self.department = Department.objects.create(name="Computer Science")
-        self.record, self.pin = seed_admission_record(
-            matric_number="2024/CSC/010",
-            first_name="Kelechi",
-            last_name="Nwosu",
-            email="kelechi@example.com",
-            department=self.department,
-            entry_level=100,
-        )
-
-    def _start(self):
-        return self.client.post(reverse("accounts:self_register_start"), {"matric_number": "2024/CSC/010"})
-
-    def test_full_happy_path_creates_account(self):
-        self._start()
-        self.client.post(reverse("accounts:self_register_pin"), {"pin": self.pin})
-        response = self.client.post(
-            reverse("accounts:self_register_password"),
-            {"password1": "Str0ng!Passw0rd", "password2": "Str0ng!Passw0rd"},
-        )
-        self.assertRedirects(response, reverse("login"))
-        self.assertFalse(AdmissionRecord.objects.filter(id=self.record.id).exists())
-
-        profile = StudentProfile.objects.get(matric_number="2024/CSC/010")
-        self.assertFalse(profile.user.must_change_password)
-        self.assertTrue(profile.user.check_password("Str0ng!Passw0rd"))
-        self.assertTrue(self.client.login(username=profile.user.username, password="Str0ng!Passw0rd"))
-
-    def test_unknown_matric_number_generic_error(self):
-        response = self.client.post(
-            reverse("accounts:self_register_start"), {"matric_number": "9999/XX/999"}
-        )
-        self.assertContains(response, "find an admission record")
-
-    def test_pin_lockout_after_max_attempts(self):
-        self._start()
-        for _ in range(settings.PIN_MAX_ATTEMPTS):
-            self.client.post(reverse("accounts:self_register_pin"), {"pin": "000000"})
-        self.record.refresh_from_db()
-        self.assertTrue(self.record.is_locked)
-
-        # A fresh attempt (right or wrong) now bounces back to step 1 with a lockout message.
-        response = self.client.post(reverse("accounts:self_register_pin"), {"pin": self.pin}, follow=True)
-        self.assertRedirects(response, reverse("accounts:self_register_start"))
-
-    def test_cannot_skip_to_password_step(self):
-        # No prior matric/PIN steps in this session.
-        response = self.client.get(reverse("accounts:self_register_password"))
-        self.assertRedirects(response, reverse("accounts:self_register_start"))
-
-    def test_cannot_reach_password_step_without_pin_verification(self):
-        self._start()
-        response = self.client.get(reverse("accounts:self_register_password"))
-        self.assertRedirects(response, reverse("accounts:self_register_start"))
-
-
 class DashboardRoutingTests(TestCase):
     def setUp(self):
         self.department = Department.objects.create(name="Computer Science")
-        self.student_profile = create_student_account(
+        self.student_profile, _ = create_student_account(
             matric_number="2023/CSC/050",
             first_name="Sam",
             last_name="Okoro",
@@ -371,3 +316,63 @@ class DashboardRoutingTests(TestCase):
         make_admin()
         self.client.login(username="admin", password="pass12345")
         self.assertEqual(self.client.get(reverse("student_dashboard")).status_code, 403)
+
+
+class PinVerificationTests(TestCase):
+    def setUp(self):
+        self.department = Department.objects.create(name="Computer Science")
+        self.profile, self.pin = create_student_account(
+            matric_number="2023/CSC/060",
+            first_name="Ngozi",
+            last_name="Eze",
+            email="ngozi@example.com",
+            department=self.department,
+            entry_level=200,
+        )
+        self.client.login(username=self.profile.user.username, password=settings.DEFAULT_PASSWORD)
+
+    def _change_password(self, pin):
+        return self.client.post(
+            reverse("accounts:change_password"),
+            {"new_password1": "N3wPassw0rd!", "new_password2": "N3wPassw0rd!", "pin": pin},
+        )
+
+    def test_correct_pin_allows_password_change(self):
+        self._change_password(self.pin)
+        self.profile.user.refresh_from_db()
+        self.assertFalse(self.profile.user.must_change_password)
+        self.assertTrue(self.profile.user.check_password("N3wPassw0rd!"))
+
+    def test_wrong_pin_rejected(self):
+        response = self._change_password("000000")
+        self.profile.user.refresh_from_db()
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(self.profile.user.must_change_password)
+        self.assertFalse(self.profile.user.check_password("N3wPassw0rd!"))
+
+    def test_lockout_after_max_attempts(self):
+        for _ in range(settings.PIN_MAX_ATTEMPTS):
+            self._change_password("000000")
+        self.profile.refresh_from_db()
+        self.assertTrue(self.profile.is_pin_locked)
+
+        # Even the correct PIN is rejected once locked.
+        response = self._change_password(self.pin)
+        self.assertContains(response, "Too many wrong PIN attempts")
+        self.profile.user.refresh_from_db()
+        self.assertTrue(self.profile.user.must_change_password)
+
+    def test_staff_forced_password_change_has_no_pin_field(self):
+        staff = make_admin()
+        staff.must_change_password = True
+        staff.save(update_fields=["must_change_password"])
+        self.client.login(username="admin", password="pass12345")
+        response = self.client.get(reverse("accounts:change_password"))
+        self.assertNotContains(response, 'name="pin"')
+
+        response = self.client.post(
+            reverse("accounts:change_password"),
+            {"new_password1": "N3wPassw0rd!", "new_password2": "N3wPassw0rd!"},
+        )
+        staff.refresh_from_db()
+        self.assertFalse(staff.must_change_password)

@@ -9,8 +9,8 @@ from django.db import transaction
 from django.shortcuts import get_object_or_404, redirect, render
 
 from .forms import BulkImportForm, DepartmentForm, StudentProfileForm
-from .models import LEVEL_CHOICES, AdmissionRecord, Department, StudentProfile
-from .services import create_student_account, seed_admission_record
+from .models import LEVEL_CHOICES, Department, StudentProfile
+from .services import create_student_account
 
 REQUIRED_COLUMNS = {"matric_number", "first_name", "last_name", "email", "department", "level"}
 OPTIONAL_COLUMNS = {"date_of_birth", "gender", "phone_number", "address"}
@@ -97,6 +97,7 @@ def bulk_import(request):
                     # transaction.atomic() makes all these creates succeed or fail together -
                     # if row 50 of 100 somehow raised an unexpected error, rows 1-49 would be
                     # rolled back too instead of leaving a half-imported file.
+                    created = []
                     with transaction.atomic():
                         for row in rows:
                             department = Department.objects.get(name__iexact=row["department"].strip())
@@ -105,7 +106,7 @@ def bulk_import(request):
                                 for field in OPTIONAL_COLUMNS
                                 if row.get(field, "").strip()
                             }
-                            create_student_account(
+                            profile, raw_pin = create_student_account(
                                 matric_number=row["matric_number"],
                                 first_name=row["first_name"].strip(),
                                 last_name=row["last_name"].strip(),
@@ -114,7 +115,37 @@ def bulk_import(request):
                                 entry_level=int(row["level"]),
                                 **optional_fields,
                             )
+                            created.append((profile, raw_pin))
+
+                    # PIN emails go out AFTER the transaction commits - sending a batch of
+                    # emails while holding a write lock open is expensive under SQLite's
+                    # single-writer model, and a send_mail failure shouldn't roll back
+                    # student accounts that are already correctly persisted.
+                    failed_emails = []
+                    for profile, raw_pin in created:
+                        try:
+                            send_mail(
+                                subject="Your LU-SIMS PIN",
+                                message=(
+                                    f"Matric number: {profile.matric_number}\n"
+                                    f"PIN: {raw_pin}\n\n"
+                                    f'Log in with your username "{profile.user.username}" and the '
+                                    f'default password "{settings.DEFAULT_PASSWORD}", then enter this '
+                                    "PIN when prompted to set your own password."
+                                ),
+                                from_email=None,
+                                recipient_list=[profile.user.email],
+                            )
+                        except Exception:
+                            failed_emails.append(profile.user.email)
+
                     messages.success(request, f"Imported {len(rows)} students.")
+                    if failed_emails:
+                        messages.warning(
+                            request,
+                            f"Could not send the PIN email to: {', '.join(failed_emails)}. "
+                            "Follow up with them manually.",
+                        )
                     return redirect("students:bulk_import")
     else:
         form = BulkImportForm()
@@ -146,126 +177,6 @@ def lookup(request):
         "students/lookup.html",
         {"matric_number": matric_number, "profile": profile, "registrations": registrations},
     )
-
-
-def _validate_admission_row(row, seen_matrics, seen_emails):
-    """Sibling of _validate_row, not a shared refactor - this one also checks against
-    AdmissionRecord (so the same matric number can't be seeded twice) and against an
-    existing StudentProfile (so an already-onboarded student doesn't get a redundant PIN),
-    neither of which _validate_row needs to care about.
-    """
-    errors = []
-
-    matric_number = (row.get("matric_number") or "").strip().upper()
-    if not matric_number:
-        errors.append("matric_number is required")
-    elif matric_number in seen_matrics:
-        errors.append(f"duplicate matric_number {matric_number} in file")
-    elif StudentProfile.objects.filter(matric_number=matric_number).exists():
-        errors.append(f"matric_number {matric_number} already has a full student account")
-    elif AdmissionRecord.objects.filter(matric_number=matric_number).exists():
-        errors.append(f"matric_number {matric_number} already has a pending admission record")
-    else:
-        seen_matrics.add(matric_number)
-
-    email = (row.get("email") or "").strip().lower()
-    if not email:
-        errors.append("email is required")
-    elif email in seen_emails:
-        errors.append(f"duplicate email {email} in file")
-    else:
-        seen_emails.add(email)
-
-    if not (row.get("first_name") or "").strip():
-        errors.append("first_name is required")
-    if not (row.get("last_name") or "").strip():
-        errors.append("last_name is required")
-
-    department_name = (row.get("department") or "").strip()
-    department = Department.objects.filter(name__iexact=department_name).first()
-    if not department:
-        errors.append(f"department '{department_name}' does not exist")
-
-    level = (row.get("level") or "").strip()
-    if level not in VALID_LEVELS:
-        errors.append(f"level '{level}' must be one of {sorted(VALID_LEVELS)}")
-
-    return errors
-
-
-@admin_required
-def seed_admissions(request):
-    if request.method == "POST":
-        form = BulkImportForm(request.POST, request.FILES)
-        if form.is_valid():
-            decoded = io.TextIOWrapper(request.FILES["csv_file"].file, encoding="utf-8-sig")
-            reader = csv.DictReader(decoded)
-
-            if not REQUIRED_COLUMNS.issubset(set(reader.fieldnames or [])):
-                messages.error(
-                    request,
-                    f"CSV must include columns: {', '.join(sorted(REQUIRED_COLUMNS))}",
-                )
-            else:
-                rows = list(reader)
-                errors = []
-                seen_matrics = set()
-                seen_emails = set()
-                for i, row in enumerate(rows, start=2):
-                    for error in _validate_admission_row(row, seen_matrics, seen_emails):
-                        errors.append(f"Row {i}: {error}")
-
-                if errors:
-                    for error in errors:
-                        messages.error(request, error)
-                else:
-                    seeded = []
-                    with transaction.atomic():
-                        for row in rows:
-                            department = Department.objects.get(name__iexact=row["department"].strip())
-                            record, pin = seed_admission_record(
-                                matric_number=row["matric_number"],
-                                first_name=row["first_name"].strip(),
-                                last_name=row["last_name"].strip(),
-                                email=row["email"].strip(),
-                                department=department,
-                                entry_level=int(row["level"]),
-                            )
-                            seeded.append((record, pin))
-
-                    # Emails go out AFTER the transaction commits - sending a batch of
-                    # emails while holding a write lock open is expensive under SQLite's
-                    # single-writer model, and a send_mail failure shouldn't roll back
-                    # AdmissionRecords that are already correctly persisted.
-                    failed_emails = []
-                    for record, pin in seeded:
-                        try:
-                            send_mail(
-                                subject="Your LU-SIMS registration details",
-                                message=(
-                                    f"Matric number: {record.matric_number}\n"
-                                    f"PIN: {pin}\n\n"
-                                    "Use these at the LU-SIMS login page (\"Is this your "
-                                    "first time here?\") to complete your registration."
-                                ),
-                                from_email=None,
-                                recipient_list=[record.email],
-                            )
-                        except Exception:
-                            failed_emails.append(record.email)
-
-                    messages.success(request, f"Seeded {len(seeded)} admission record(s).")
-                    if failed_emails:
-                        messages.warning(
-                            request,
-                            f"Could not send the PIN email to: {', '.join(failed_emails)}. "
-                            "Follow up with them manually.",
-                        )
-                    return redirect("students:seed_admissions")
-    else:
-        form = BulkImportForm()
-
-    return render(request, "students/seed_admissions.html", {"form": form})
 
 
 @admin_required
