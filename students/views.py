@@ -5,6 +5,7 @@ from accounts.decorators import admin_required, registrar_required, student_requ
 from django.conf import settings
 from django.contrib import messages
 from django.core.mail import send_mail
+from django.core.paginator import Paginator
 from django.db import transaction
 from django.db.models import Q
 from django.shortcuts import get_object_or_404, redirect, render
@@ -221,14 +222,41 @@ def department_edit(request, pk):
 @registrar_required
 def manage_students(request):
     query = request.GET.get("q", "").strip()
-    profiles = StudentProfile.objects.select_related("user", "department")
+    department_id = request.GET.get("department", "").strip()
+    entry_level = request.GET.get("entry_level", "").strip()
+
+    profiles = StudentProfile.objects.select_related("user", "department").order_by("matric_number")
     if query:
         profiles = profiles.filter(
             Q(matric_number__icontains=query)
             | Q(user__first_name__icontains=query)
             | Q(user__last_name__icontains=query)
         )
-    return render(request, "students/manage_students.html", {"query": query, "profiles": profiles})
+    if department_id:
+        profiles = profiles.filter(department_id=department_id)
+    if entry_level:
+        profiles = profiles.filter(entry_level=entry_level)
+
+    paginator = Paginator(profiles, 10)
+    profiles = paginator.get_page(request.GET.get("page"))
+
+    params = request.GET.copy()
+    params.pop("page", None)
+    querystring = params.urlencode()
+
+    return render(
+        request,
+        "students/manage_students.html",
+        {
+            "query": query,
+            "profiles": profiles,
+            "querystring": querystring,
+            "departments": Department.objects.all(),
+            "levels": LEVEL_CHOICES,
+            "selected_department": department_id,
+            "selected_entry_level": entry_level,
+        },
+    )
 
 
 @registrar_required

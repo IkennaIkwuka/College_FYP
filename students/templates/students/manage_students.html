@@ -4,11 +4,23 @@
 
 {% block content %}
     <h1>Manage Students</h1>
-    <form method="get" class="mb-4">
+    <form method="get" class="mb-4 d-flex flex-wrap gap-2 align-items-end">
         <div class="input-group" style="max-width: 400px;">
             <input type="text" name="q" value="{{ query }}" placeholder="Matric number or name" class="form-control">
-            <button type="submit" class="btn btn-primary">Search</button>
         </div>
+        <select name="department" class="form-select" style="max-width: 220px;" onchange="this.form.submit()">
+            <option value="">All departments</option>
+            {% for department in departments %}
+                <option value="{{ department.id }}" {% if selected_department == department.id|stringformat:"s" %}selected{% endif %}>{{ department.name }}</option>
+            {% endfor %}
+        </select>
+        <select name="entry_level" class="form-select" style="max-width: 180px;" onchange="this.form.submit()">
+            <option value="">All entry levels</option>
+            {% for level, label in levels %}
+                <option value="{{ level }}" {% if selected_entry_level == level|stringformat:"s" %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+        </select>
+        <button type="submit" class="btn btn-primary">Search / Filter</button>
     </form>
 
     {% if profiles %}
@@ -36,6 +48,28 @@
                 {% endfor %}
             </tbody>
         </table>
+
+        {% if profiles.has_other_pages %}
+            <nav>
+                <ul class="pagination">
+                    <li class="page-item {% if not profiles.has_previous %}disabled{% endif %}">
+                        {% if profiles.has_previous %}
+                            <a class="page-link" href="?{{ querystring }}{% if querystring %}&{% endif %}page={{ profiles.previous_page_number }}">Previous</a>
+                        {% else %}
+                            <span class="page-link">Previous</span>
+                        {% endif %}
+                    </li>
+                    <li class="page-item disabled"><span class="page-link">Page {{ profiles.number }} of {{ profiles.paginator.num_pages }}</span></li>
+                    <li class="page-item {% if not profiles.has_next %}disabled{% endif %}">
+                        {% if profiles.has_next %}
+                            <a class="page-link" href="?{{ querystring }}{% if querystring %}&{% endif %}page={{ profiles.next_page_number }}">Next</a>
+                        {% else %}
+                            <span class="page-link">Next</span>
+                        {% endif %}
+                    </li>
+                </ul>
+            </nav>
+        {% endif %}
     {% else %}
         {% if query %}
             <p class="text-muted">No students found matching "{{ query }}".</p>
@@ -43,4 +77,15 @@
             <p class="text-muted">No students yet.</p>
         {% endif %}
     {% endif %}
+
+    <script>
+        (function () {
+            const input = document.querySelector('input[name="q"]');
+            let timeout;
+            input.addEventListener("input", function () {
+                clearTimeout(timeout);
+                timeout = setTimeout(() => input.form.submit(), 400);
+            });
+        })();
+    </script>
 {% endblock %}

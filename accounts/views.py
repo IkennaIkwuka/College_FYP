@@ -5,6 +5,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import Group
 from django.core.exceptions import PermissionDenied
 from django.core.mail import send_mail
+from django.core.paginator import Paginator
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse_lazy
 
@@ -74,8 +75,33 @@ def register(request):
 
 @admin_required
 def manage_staff(request):
-    staff_users = User.objects.filter(groups__name__in=STAFF_GROUPS).distinct()
-    return render(request, "accounts/manage_staff.html", {"staff_users": staff_users})
+    group_id = request.GET.get("group", "").strip()
+    is_active = request.GET.get("is_active", "").strip()
+
+    staff_users = User.objects.filter(groups__name__in=STAFF_GROUPS).distinct().order_by("username")
+    if group_id:
+        staff_users = staff_users.filter(groups__id=group_id)
+    if is_active:
+        staff_users = staff_users.filter(is_active=(is_active == "1"))
+
+    paginator = Paginator(staff_users, 10)
+    staff_users = paginator.get_page(request.GET.get("page"))
+
+    params = request.GET.copy()
+    params.pop("page", None)
+    querystring = params.urlencode()
+
+    return render(
+        request,
+        "accounts/manage_staff.html",
+        {
+            "staff_users": staff_users,
+            "querystring": querystring,
+            "groups": Group.objects.filter(name__in=STAFF_GROUPS),
+            "selected_group": group_id,
+            "selected_is_active": is_active,
+        },
+    )
 
 
 @admin_required

@@ -178,6 +178,45 @@ class ManageCoursesTests(TestCase):
         self.assertContains(response, "CSC301")
         self.assertNotContains(response, "PHY301")
 
+    def test_filter_by_level(self):
+        Course.objects.create(
+            code="CSC101", title="Intro", units=3,
+            department=self.department, level=100, semester="first",
+        )
+        response = self.client.get(reverse("courses:manage_courses"), {"level": 100})
+        self.assertContains(response, "CSC101")
+        self.assertNotContains(response, "CSC301")
+
+    def test_filter_by_semester(self):
+        Course.objects.create(
+            code="CSC303", title="Compilers", units=3,
+            department=self.department, level=300, semester="second",
+        )
+        response = self.client.get(reverse("courses:manage_courses"), {"semester": "second"})
+        self.assertContains(response, "CSC303")
+        self.assertNotContains(response, "CSC301")
+
+    def test_filter_by_active_status(self):
+        inactive = Course.objects.create(
+            code="CSC199", title="Retired", units=3,
+            department=self.department, level=100, semester="first", is_active=False,
+        )
+        response = self.client.get(reverse("courses:manage_courses"), {"is_active": "0"})
+        self.assertContains(response, "CSC199")
+        self.assertNotContains(response, "CSC301")
+
+    def test_pagination_limits_to_ten_per_page(self):
+        for i in range(20):
+            Course.objects.create(
+                code=f"CSC5{i:02d}", title=f"Extra {i}", units=3,
+                department=self.department, level=100, semester="first",
+            )
+        response = self.client.get(reverse("courses:manage_courses"))
+        self.assertEqual(len(response.context["courses"]), 10)
+
+        response_page2 = self.client.get(reverse("courses:manage_courses"), {"page": 2})
+        self.assertEqual(response_page2.context["courses"].number, 2)
+
     def test_add_course_is_scoped_to_own_department(self):
         response = self.client.post(
             reverse("courses:course_add"),
@@ -247,12 +286,46 @@ class CourseRegistrationsViewTests(TestCase):
             student=self.student, course=self.own_course,
             session=settings.CURRENT_SESSION, semester="first",
         )
+        self.other_student = make_student("2023/CSC/051", self.department, 300)
+        CourseRegistration.objects.create(
+            student=self.other_student, course=self.own_course,
+            session="2020/2021", semester="second",
+        )
 
         self.client.login(username="hod1", password="pass12345")
 
     def test_shows_registrations_for_own_course(self):
         response = self.client.get(reverse("courses:course_registrations", args=[self.own_course.id]))
         self.assertContains(response, "2023/CSC/050")
+
+    def test_filter_by_session(self):
+        response = self.client.get(
+            reverse("courses:course_registrations", args=[self.own_course.id]), {"session": "2020/2021"}
+        )
+        self.assertContains(response, "2023/CSC/051")
+        self.assertNotContains(response, "2023/CSC/050")
+
+    def test_filter_by_semester(self):
+        response = self.client.get(
+            reverse("courses:course_registrations", args=[self.own_course.id]), {"semester": "second"}
+        )
+        self.assertContains(response, "2023/CSC/051")
+        self.assertNotContains(response, "2023/CSC/050")
+
+    def test_pagination_limits_to_ten_per_page(self):
+        for i in range(15):
+            extra_student = make_student(f"2024/CSC/{i:03d}", self.department, 300)
+            CourseRegistration.objects.create(
+                student=extra_student, course=self.own_course,
+                session=settings.CURRENT_SESSION, semester="first",
+            )
+        response = self.client.get(reverse("courses:course_registrations", args=[self.own_course.id]))
+        self.assertEqual(len(response.context["registrations"]), 10)
+
+        response_page2 = self.client.get(
+            reverse("courses:course_registrations", args=[self.own_course.id]), {"page": 2}
+        )
+        self.assertEqual(response_page2.context["registrations"].number, 2)
 
     def test_other_departments_course_404s(self):
         response = self.client.get(reverse("courses:course_registrations", args=[self.other_course.id]))

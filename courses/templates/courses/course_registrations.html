@@ -5,6 +5,24 @@
 {% block content %}
     <h1>{{ course.code }} - {{ course.title }}</h1>
 
+    {% if sessions %}
+        <form method="get" class="mb-4 d-flex flex-wrap gap-2 align-items-end">
+            <select name="session" class="form-select" style="max-width: 180px;" onchange="this.form.submit()">
+                <option value="">All sessions</option>
+                {% for session in sessions %}
+                    <option value="{{ session }}" {% if selected_session == session %}selected{% endif %}>{{ session }}</option>
+                {% endfor %}
+            </select>
+            <select name="semester" class="form-select" style="max-width: 180px;" onchange="this.form.submit()">
+                <option value="">All semesters</option>
+                {% for value, label in semesters %}
+                    <option value="{{ value }}" {% if selected_semester == value %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+            <button type="submit" class="btn btn-primary">Filter</button>
+        </form>
+    {% endif %}
+
     {% if registrations %}
         <table class="table table-striped">
             <thead>
@@ -28,7 +46,33 @@
                 {% endfor %}
             </tbody>
         </table>
+
+        {% if registrations.has_other_pages %}
+            <nav>
+                <ul class="pagination">
+                    <li class="page-item {% if not registrations.has_previous %}disabled{% endif %}">
+                        {% if registrations.has_previous %}
+                            <a class="page-link" href="?{{ querystring }}{% if querystring %}&{% endif %}page={{ registrations.previous_page_number }}">Previous</a>
+                        {% else %}
+                            <span class="page-link">Previous</span>
+                        {% endif %}
+                    </li>
+                    <li class="page-item disabled"><span class="page-link">Page {{ registrations.number }} of {{ registrations.paginator.num_pages }}</span></li>
+                    <li class="page-item {% if not registrations.has_next %}disabled{% endif %}">
+                        {% if registrations.has_next %}
+                            <a class="page-link" href="?{{ querystring }}{% if querystring %}&{% endif %}page={{ registrations.next_page_number }}">Next</a>
+                        {% else %}
+                            <span class="page-link">Next</span>
+                        {% endif %}
+                    </li>
+                </ul>
+            </nav>
+        {% endif %}
     {% else %}
-        <p class="text-muted">No registrations for this course yet.</p>
+        {% if selected_session or selected_semester %}
+            <p class="text-muted">No registrations match the selected filters.</p>
+        {% else %}
+            <p class="text-muted">No registrations for this course yet.</p>
+        {% endif %}
     {% endif %}
 {% endblock %}

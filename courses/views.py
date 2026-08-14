@@ -1,12 +1,13 @@
 from django.conf import settings
 from django.contrib import messages
+from django.core.paginator import Paginator
 from django.shortcuts import get_object_or_404, redirect, render
 from students.models import Department, LEVEL_CHOICES
 
 from accounts.decorators import hod_required, lecturer_required, student_required
 
 from .forms import CourseForm, CourseSelectionForm
-from .models import Course, CourseRegistration
+from .models import SEMESTER_CHOICES, Course, CourseRegistration
 
 
 @student_required
@@ -87,9 +88,41 @@ def _hod_department(request):
 @hod_required
 def manage_courses(request):
     department = _hod_department(request)
-    courses = Course.objects.filter(department=department) if department else None
+    courses = None
+    querystring = ""
+    selected_level = selected_semester = selected_is_active = ""
+    if department:
+        courses = Course.objects.filter(department=department).order_by("code")
+        selected_level = request.GET.get("level", "").strip()
+        selected_semester = request.GET.get("semester", "").strip()
+        selected_is_active = request.GET.get("is_active", "").strip()
+        if selected_level:
+            courses = courses.filter(level=selected_level)
+        if selected_semester:
+            courses = courses.filter(semester=selected_semester)
+        if selected_is_active:
+            courses = courses.filter(is_active=(selected_is_active == "1"))
+
+        paginator = Paginator(courses, 10)
+        courses = paginator.get_page(request.GET.get("page"))
+
+        params = request.GET.copy()
+        params.pop("page", None)
+        querystring = params.urlencode()
+
     return render(
-        request, "courses/manage_courses.html", {"department": department, "courses": courses}
+        request,
+        "courses/manage_courses.html",
+        {
+            "department": department,
+            "courses": courses,
+            "querystring": querystring,
+            "levels": LEVEL_CHOICES,
+            "semesters": SEMESTER_CHOICES,
+            "selected_level": selected_level,
+            "selected_semester": selected_semester,
+            "selected_is_active": selected_is_active,
+        },
     )
 
 
@@ -135,9 +168,37 @@ def course_edit(request, pk):
 def course_registrations(request, pk):
     department = _hod_department(request)
     course = get_object_or_404(Course, pk=pk, department=department)
-    registrations = course.registrations.select_related("student__user").order_by("-session", "semester")
+    registrations = course.registrations.select_related("student__user")
+
+    selected_session = request.GET.get("session", "").strip()
+    selected_semester = request.GET.get("semester", "").strip()
+    if selected_session:
+        registrations = registrations.filter(session=selected_session)
+    if selected_semester:
+        registrations = registrations.filter(semester=selected_semester)
+    registrations = registrations.order_by("-session", "semester")
+
+    sessions = course.registrations.values_list("session", flat=True).distinct().order_by("-session")
+
+    paginator = Paginator(registrations, 10)
+    registrations = paginator.get_page(request.GET.get("page"))
+
+    params = request.GET.copy()
+    params.pop("page", None)
+    querystring = params.urlencode()
+
     return render(
-        request, "courses/course_registrations.html", {"course": course, "registrations": registrations}
+        request,
+        "courses/course_registrations.html",
+        {
+            "course": course,
+            "registrations": registrations,
+            "querystring": querystring,
+            "sessions": sessions,
+            "semesters": SEMESTER_CHOICES,
+            "selected_session": selected_session,
+            "selected_semester": selected_semester,
+        },
     )
 
 

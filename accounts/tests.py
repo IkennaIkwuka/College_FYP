@@ -232,6 +232,35 @@ class AdminOnlyViewsTests(TestCase):
         self.assertFalse(self.client.login(username="hodtodeactivate", password="pass12345"))
 
 
+class ManageStaffFilterTests(TestCase):
+    def setUp(self):
+        self.admin_user = make_admin()
+        self.hod = make_hod(username="hodforfilter")
+        self.lecturer = make_lecturer(username="lectforfilter")
+        self.lecturer.is_active = False
+        self.lecturer.save(update_fields=["is_active"])
+        self.client.login(username="admin", password="pass12345")
+
+    def test_filter_by_role(self):
+        response = self.client.get(reverse("accounts:manage_staff"), {"group": Group.objects.get(name=HOD_GROUP).id})
+        self.assertContains(response, "hodforfilter")
+        self.assertNotContains(response, "lectforfilter")
+
+    def test_filter_by_active_status(self):
+        response = self.client.get(reverse("accounts:manage_staff"), {"is_active": "0"})
+        self.assertContains(response, "lectforfilter")
+        self.assertNotContains(response, "hodforfilter")
+
+    def test_pagination_limits_to_ten_per_page(self):
+        for i in range(15):
+            make_hod(username=f"pagstaff{i}")
+        response = self.client.get(reverse("accounts:manage_staff"))
+        self.assertEqual(len(response.context["staff_users"]), 10)
+
+        response_page2 = self.client.get(reverse("accounts:manage_staff"), {"page": 2})
+        self.assertEqual(response_page2.context["staff_users"].number, 2)
+
+
 class StaffIdentityTests(TestCase):
     """Covers accounts.services.assign_staff_identity() directly - the admin add_view
     wiring around it is exercised separately in AdminStaffCreationTests."""

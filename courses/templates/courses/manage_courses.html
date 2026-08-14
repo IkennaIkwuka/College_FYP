@@ -11,6 +11,27 @@
         <p class="text-muted">{{ department }}</p>
         <a href="{% url 'courses:course_add' %}" class="btn btn-primary mb-3">Add Course</a>
 
+        <form method="get" class="mb-4 d-flex flex-wrap gap-2 align-items-end">
+            <select name="level" class="form-select" style="max-width: 160px;" onchange="this.form.submit()">
+                <option value="">All levels</option>
+                {% for level, label in levels %}
+                    <option value="{{ level }}" {% if selected_level == level|stringformat:"s" %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+            <select name="semester" class="form-select" style="max-width: 180px;" onchange="this.form.submit()">
+                <option value="">All semesters</option>
+                {% for value, label in semesters %}
+                    <option value="{{ value }}" {% if selected_semester == value %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+            <select name="is_active" class="form-select" style="max-width: 160px;" onchange="this.form.submit()">
+                <option value="">All statuses</option>
+                <option value="1" {% if selected_is_active == "1" %}selected{% endif %}>Active</option>
+                <option value="0" {% if selected_is_active == "0" %}selected{% endif %}>Inactive</option>
+            </select>
+            <button type="submit" class="btn btn-primary">Filter</button>
+        </form>
+
         {% if courses %}
             <table class="table table-striped">
                 <thead>
@@ -53,8 +74,34 @@
                     {% endfor %}
                 </tbody>
             </table>
+
+            {% if courses.has_other_pages %}
+                <nav>
+                    <ul class="pagination">
+                        <li class="page-item {% if not courses.has_previous %}disabled{% endif %}">
+                            {% if courses.has_previous %}
+                                <a class="page-link" href="?{{ querystring }}{% if querystring %}&{% endif %}page={{ courses.previous_page_number }}">Previous</a>
+                            {% else %}
+                                <span class="page-link">Previous</span>
+                            {% endif %}
+                        </li>
+                        <li class="page-item disabled"><span class="page-link">Page {{ courses.number }} of {{ courses.paginator.num_pages }}</span></li>
+                        <li class="page-item {% if not courses.has_next %}disabled{% endif %}">
+                            {% if courses.has_next %}
+                                <a class="page-link" href="?{{ querystring }}{% if querystring %}&{% endif %}page={{ courses.next_page_number }}">Next</a>
+                            {% else %}
+                                <span class="page-link">Next</span>
+                            {% endif %}
+                        </li>
+                    </ul>
+                </nav>
+            {% endif %}
         {% else %}
-            <p class="text-muted">No courses in your department yet.</p>
+            {% if selected_level or selected_semester or selected_is_active %}
+                <p class="text-muted">No courses match the selected filters.</p>
+            {% else %}
+                <p class="text-muted">No courses in your department yet.</p>
+            {% endif %}
         {% endif %}
     {% endif %}
 {% endblock %}

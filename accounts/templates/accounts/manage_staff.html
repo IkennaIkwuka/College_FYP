@@ -6,6 +6,21 @@
     <h1>Manage Staff</h1>
     <a href="{% url 'accounts:staff_add' %}" class="btn btn-primary mb-3">Add Staff</a>
 
+    <form method="get" class="mb-4 d-flex flex-wrap gap-2 align-items-end">
+        <select name="group" class="form-select" style="max-width: 200px;" onchange="this.form.submit()">
+            <option value="">All roles</option>
+            {% for group in groups %}
+                <option value="{{ group.id }}" {% if selected_group == group.id|stringformat:"s" %}selected{% endif %}>{{ group.name }}</option>
+            {% endfor %}
+        </select>
+        <select name="is_active" class="form-select" style="max-width: 180px;" onchange="this.form.submit()">
+            <option value="">All statuses</option>
+            <option value="1" {% if selected_is_active == "1" %}selected{% endif %}>Active</option>
+            <option value="0" {% if selected_is_active == "0" %}selected{% endif %}>Inactive</option>
+        </select>
+        <button type="submit" class="btn btn-primary">Filter</button>
+    </form>
+
     {% if staff_users %}
         <table class="table table-striped">
             <thead>
@@ -31,7 +46,33 @@
                 {% endfor %}
             </tbody>
         </table>
+
+        {% if staff_users.has_other_pages %}
+            <nav>
+                <ul class="pagination">
+                    <li class="page-item {% if not staff_users.has_previous %}disabled{% endif %}">
+                        {% if staff_users.has_previous %}
+                            <a class="page-link" href="?{{ querystring }}{% if querystring %}&{% endif %}page={{ staff_users.previous_page_number }}">Previous</a>
+                        {% else %}
+                            <span class="page-link">Previous</span>
+                        {% endif %}
+                    </li>
+                    <li class="page-item disabled"><span class="page-link">Page {{ staff_users.number }} of {{ staff_users.paginator.num_pages }}</span></li>
+                    <li class="page-item {% if not staff_users.has_next %}disabled{% endif %}">
+                        {% if staff_users.has_next %}
+                            <a class="page-link" href="?{{ querystring }}{% if querystring %}&{% endif %}page={{ staff_users.next_page_number }}">Next</a>
+                        {% else %}
+                            <span class="page-link">Next</span>
+                        {% endif %}
+                    </li>
+                </ul>
+            </nav>
+        {% endif %}
     {% else %}
-        <p class="text-muted">No staff accounts yet.</p>
+        {% if selected_group or selected_is_active %}
+            <p class="text-muted">No staff match the selected filters.</p>
+        {% else %}
+            <p class="text-muted">No staff accounts yet.</p>
+        {% endif %}
     {% endif %}
 {% endblock %}

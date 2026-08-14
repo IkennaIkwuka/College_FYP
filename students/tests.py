@@ -230,6 +230,35 @@ class ManageStudentsTests(TestCase):
         self.assertContains(response, "Ifeoma")
         self.assertContains(response, "Bassey")
 
+    def test_filter_by_department(self):
+        response = self.client.get(reverse("students:manage_students"), {"department": self.department.id})
+        self.assertContains(response, "Ifeoma")
+        self.assertNotContains(response, "Bassey")
+
+    def test_filter_by_entry_level(self):
+        response = self.client.get(reverse("students:manage_students"), {"entry_level": 100})
+        self.assertContains(response, "Bassey")
+        self.assertNotContains(response, "Ifeoma")
+
+    def test_search_and_filter_combine(self):
+        response = self.client.get(
+            reverse("students:manage_students"), {"q": "Obiora", "department": self.department.id}
+        )
+        self.assertContains(response, "Ifeoma")
+        self.assertNotContains(response, "Bassey")
+
+    def test_pagination_limits_to_ten_per_page(self):
+        for i in range(20):
+            create_student_account(
+                matric_number=f"2024/PAG/{i:03d}", first_name=f"Pag{i}", last_name="Tester",
+                email=f"pagtest{i}@example.com", department=self.department, entry_level=100,
+            )
+        response = self.client.get(reverse("students:manage_students"))
+        self.assertEqual(len(response.context["profiles"]), 10)
+
+        response_page2 = self.client.get(reverse("students:manage_students"), {"page": 2})
+        self.assertEqual(response_page2.context["profiles"].number, 2)
+
     def test_registrar_can_edit_student(self):
         response = self.client.post(
             reverse("students:student_edit", args=[self.profile.id]),
