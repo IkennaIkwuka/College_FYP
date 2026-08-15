@@ -20,7 +20,6 @@
                 <option value="{{ level }}" {% if selected_entry_level == level|stringformat:"s" %}selected{% endif %}>{{ label }}</option>
             {% endfor %}
         </select>
-        <button type="submit" class="btn btn-primary">Search / Filter</button>
     </form>
 
     {% if profiles %}
