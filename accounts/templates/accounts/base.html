@@ -24,7 +24,6 @@
                     {% if user.is_student %}
                         <a class="btn btn-outline-light btn-sm me-2" href="{% url 'courses:register' %}">Register for Courses</a>
                         <a class="btn btn-outline-light btn-sm me-2" href="{% url 'courses:my_registrations' %}">My Registrations</a>
-                        <a class="btn btn-outline-light btn-sm me-2" href="{% url 'students:my_profile' %}">My Profile</a>
                     {% endif %}
                     {% if user.is_hod %}
                         <a class="btn btn-outline-light btn-sm me-2" href="{% url 'courses:manage_courses' %}">Manage Courses</a>
@@ -35,6 +34,7 @@
                     {% if user.is_registrar %}
                         <a class="btn btn-outline-light btn-sm me-2" href="{% url 'students:manage_students' %}">Manage Students</a>
                     {% endif %}
+                    <a class="btn btn-outline-light btn-sm me-2" href="{% if user.is_student %}{% url 'students:my_profile' %}{% else %}{% url 'accounts:profile' %}{% endif %}">My Profile</a>
                     <form method="post" action="{% url 'accounts:logout' %}" class="d-inline">
                         {% csrf_token %}
                         <button type="submit" class="btn btn-outline-light btn-sm">Log out</button>

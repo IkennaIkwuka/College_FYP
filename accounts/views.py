@@ -73,6 +73,16 @@ def register(request):
     )
 
 
+@login_required
+def profile(request):
+    # Students have their own richer profile page (academic details + editable
+    # personal fields) - send anyone who lands here via a stale link or bookmark
+    # to that instead of showing them this staff-oriented, view-only version.
+    if request.user.is_student:
+        return redirect("students:my_profile")
+    return render(request, "accounts/profile.html")
+
+
 @admin_required
 def manage_staff(request):
     group_id = request.GET.get("group", "").strip()

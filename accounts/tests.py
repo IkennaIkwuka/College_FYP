@@ -331,6 +331,44 @@ class AdminStaffCreationTests(TestCase):
         self.assertTrue(user.groups.filter(name=LECTURER_GROUP).exists())
 
 
+class ProfilePageTests(TestCase):
+    def test_staff_can_view_own_profile(self):
+        hod = make_hod(username="hodprofile")
+        self.client.login(username="hodprofile", password="pass12345")
+        response = self.client.get(reverse("accounts:profile"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, hod.email)
+
+    def test_hod_profile_shows_headed_department(self):
+        hod = make_hod(username="hodwithdept")
+        Department.objects.create(name="Physics", hod=hod)
+        self.client.login(username="hodwithdept", password="pass12345")
+        response = self.client.get(reverse("accounts:profile"))
+        self.assertContains(response, "Physics")
+
+    def test_lecturer_profile_has_no_department_row(self):
+        make_lecturer(username="lectprofile")
+        self.client.login(username="lectprofile", password="pass12345")
+        response = self.client.get(reverse("accounts:profile"))
+        self.assertNotContains(response, "Department")
+
+    def test_student_redirected_to_own_profile_page(self):
+        department = Department.objects.create(name="Chemistry")
+        profile, _ = create_student_account(
+            matric_number="2023/CSC/060",
+            first_name="Sara",
+            last_name="Lee",
+            email="saralee@example.com",
+            department=department,
+            entry_level=100,
+        )
+        profile.user.must_change_password = False
+        profile.user.save(update_fields=["must_change_password"])
+        self.client.login(username=profile.user.username, password=settings.DEFAULT_PASSWORD)
+        response = self.client.get(reverse("accounts:profile"))
+        self.assertRedirects(response, reverse("students:my_profile"))
+
+
 class DashboardRoutingTests(TestCase):
     def setUp(self):
         self.department = Department.objects.create(name="Computer Science")

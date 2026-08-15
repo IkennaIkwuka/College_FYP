@@ -1,0 +1,23 @@
+{% extends "accounts/base.html" %}
+
+{% block title %}My Profile - LU-SIMS{% endblock %}
+
+{% block content %}
+    <h1>My Profile</h1>
+
+    <div class="card">
+        <div class="card-body">
+            <h2 class="h5">Account Details</h2>
+            <table class="table table-sm w-auto">
+                <tr><th>Name</th><td>{{ user.get_full_name|default:user.username }}</td></tr>
+                <tr><th>Email</th><td>{{ user.email }}</td></tr>
+                <tr><th>Username</th><td>{{ user.username }}</td></tr>
+                <tr><th>Staff ID</th><td>{{ user.staff_id|default:"-" }}</td></tr>
+                <tr><th>Role</th><td>{{ user.groups.first|default:"-" }}</td></tr>
+                {% if user.department_headed %}
+                    <tr><th>Department</th><td>{{ user.department_headed }}</td></tr>
+                {% endif %}
+            </table>
+        </div>
+    </div>
+{% endblock %}
