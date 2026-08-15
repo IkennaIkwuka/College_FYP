@@ -51,15 +51,3 @@ class User(AbstractUser):
     @property
     def is_dean(self):
         return self.has_role(DEAN_GROUP)
-
-
-class StaffIDCounter(models.Model):
-    """Single-row counter driving sequential staff IDs (STF0001, STF0002, ...).
-
-    A dedicated counter (rather than scanning User.staff_id for the current max) stays
-    correct even after a staff account is deleted, and is what generate_next_staff_id()
-    in accounts.services locks via select_for_update() to keep concurrent staff creation
-    from handing out the same ID twice.
-    """
-
-    last_number = models.PositiveIntegerField(default=0)

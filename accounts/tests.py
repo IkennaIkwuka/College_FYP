@@ -173,13 +173,35 @@ class AdminOnlyViewsTests(TestCase):
                 "first_name": "New",
                 "last_name": "Lecturer",
                 "email": "newlect@example.com",
+                "staff_id": "2026/CSC/010",
                 "group": Group.objects.get(name=LECTURER_GROUP).id,
             },
         )
         self.assertRedirects(response, reverse("accounts:manage_staff"))
         new_staff = User.objects.get(email="newlect@example.com")
-        self.assertTrue(new_staff.staff_id)
+        self.assertEqual(new_staff.staff_id, "2026/CSC/010")
+        self.assertEqual(new_staff.username, "2026csc010")
         self.assertTrue(new_staff.groups.filter(name=LECTURER_GROUP).exists())
+
+    def test_admin_cannot_add_staff_with_duplicate_id(self):
+        self.client.login(username="admin", password="pass12345")
+        User.objects.create_user(
+            username="existinghod", email="existinghod@example.com", password="pass12345",
+            staff_id="2026/CSC/001",
+        )
+        response = self.client.post(
+            reverse("accounts:staff_add"),
+            {
+                "first_name": "Another",
+                "last_name": "Lecturer",
+                "email": "another@example.com",
+                "staff_id": "2026/csc/001",
+                "group": Group.objects.get(name=LECTURER_GROUP).id,
+            },
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(User.objects.filter(email="another@example.com").exists())
+        self.assertContains(response, "already exists")
 
     def test_admin_can_edit_staff(self):
         staff = make_hod(username="hodtoedit")
@@ -265,18 +287,19 @@ class StaffIdentityTests(TestCase):
     """Covers accounts.services.assign_staff_identity() directly - the admin add_view
     wiring around it is exercised separately in AdminStaffCreationTests."""
 
-    def test_sequential_ids_and_lowercase_username(self):
-        user1 = assign_staff_identity(User(email="a@example.com", first_name="A", last_name="One"))
-        user1.save()
-        user2 = assign_staff_identity(User(email="b@example.com", first_name="B", last_name="Two"))
-        user2.save()
+    def test_username_derived_from_staff_id(self):
+        user = assign_staff_identity(
+            User(email="a@example.com", first_name="A", last_name="One", staff_id="2026/CSC/003")
+        )
+        user.save()
 
-        self.assertEqual(user1.staff_id, "STF0001")
-        self.assertEqual(user1.username, "stf0001")
-        self.assertEqual(user2.staff_id, "STF0002")
+        self.assertEqual(user.staff_id, "2026/CSC/003")
+        self.assertEqual(user.username, "2026csc003")
 
     def test_default_password_and_forced_change(self):
-        user = assign_staff_identity(User(email="c@example.com", first_name="C", last_name="Three"))
+        user = assign_staff_identity(
+            User(email="c@example.com", first_name="C", last_name="Three", staff_id="2026/CSC/004")
+        )
         user.save()
         self.assertTrue(user.check_password(settings.DEFAULT_PASSWORD))
         self.assertTrue(user.must_change_password)
@@ -296,13 +319,14 @@ class AdminStaffCreationTests(TestCase):
                 "first_name": "Grace",
                 "last_name": "Hopper",
                 "email": "grace@example.com",
+                "staff_id": "2026/CSC/020",
                 "groups": [Group.objects.get(name=LECTURER_GROUP).id],
             },
         )
         self.assertEqual(response.status_code, 302)
         user = User.objects.get(email="grace@example.com")
-        self.assertEqual(user.staff_id, "STF0001")
-        self.assertEqual(user.username, "stf0001")
+        self.assertEqual(user.staff_id, "2026/CSC/020")
+        self.assertEqual(user.username, "2026csc020")
         self.assertTrue(user.must_change_password)
         self.assertTrue(user.groups.filter(name=LECTURER_GROUP).exists())
 

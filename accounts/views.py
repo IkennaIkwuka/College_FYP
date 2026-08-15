@@ -113,6 +113,7 @@ def staff_add(request):
                 first_name=form.cleaned_data["first_name"],
                 last_name=form.cleaned_data["last_name"],
                 email=form.cleaned_data["email"],
+                staff_id=form.cleaned_data["staff_id"],
             )
             assign_staff_identity(user)
             user.save()
