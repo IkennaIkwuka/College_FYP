@@ -135,6 +135,34 @@ class RegisterViewTests(TestCase):
         available = set(response.context["form"].fields["courses"].queryset)
         self.assertNotIn(self.matching_course, available)
 
+    def test_registering_over_max_units_is_rejected(self):
+        over_course = Course.objects.create(
+            code="CSC303", title="Big Course", units=22,
+            department=self.department, level=300, semester="first",
+        )
+        response = self.client.post(
+            reverse("courses:register"),
+            {"courses": [self.matching_course.id, over_course.id]},  # 3 + 22 = 25 units
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(
+            CourseRegistration.objects.filter(student=self.profile, course=over_course).exists()
+        )
+        self.assertContains(response, "maximum allowed per semester")
+
+    def test_registering_under_min_units_still_succeeds_with_warning(self):
+        # follow=True so the flashed message can be checked on the same response -
+        # messages are consumed on first render, and assertRedirects on its own
+        # already renders (and would otherwise use up) the target page once.
+        response = self.client.post(
+            reverse("courses:register"), {"courses": [self.matching_course.id]}, follow=True
+        )
+        self.assertRedirects(response, reverse("courses:my_registrations"))
+        self.assertTrue(
+            CourseRegistration.objects.filter(student=self.profile, course=self.matching_course).exists()
+        )
+        self.assertContains(response, "NUC minimum is 15")
+
 
 class MyRegistrationsViewTests(TestCase):
     def setUp(self):
@@ -189,11 +217,11 @@ class ManageCoursesTests(TestCase):
 
     def test_filter_by_semester(self):
         Course.objects.create(
-            code="CSC303", title="Compilers", units=3,
+            code="CSC304", title="Compilers", units=3,
             department=self.department, level=300, semester="second",
         )
         response = self.client.get(reverse("courses:manage_courses"), {"semester": "second"})
-        self.assertContains(response, "CSC303")
+        self.assertContains(response, "CSC304")
         self.assertNotContains(response, "CSC301")
 
     def test_filter_by_active_status(self):
@@ -207,8 +235,10 @@ class ManageCoursesTests(TestCase):
 
     def test_pagination_limits_to_ten_per_page(self):
         for i in range(20):
+            # *2+1 keeps every generated code's last digit odd, matching the
+            # "first semester" code convention being enforced now.
             Course.objects.create(
-                code=f"CSC1{i:02d}", title=f"Extra {i}", units=3,
+                code=f"CSC1{(i * 2 + 1):02d}", title=f"Extra {i}", units=3,
                 department=self.department, level=100, semester="first",
             )
         response = self.client.get(reverse("courses:manage_courses"))
@@ -220,11 +250,20 @@ class ManageCoursesTests(TestCase):
     def test_add_course_is_scoped_to_own_department(self):
         response = self.client.post(
             reverse("courses:course_add"),
-            {"code": "CSC302", "title": "Compilers", "units": 3, "level": 300, "semester": "first"},
+            {"code": "CSC303", "title": "Compilers", "units": 3, "level": 300, "semester": "first"},
         )
         self.assertRedirects(response, reverse("courses:manage_courses"))
-        course = Course.objects.get(code="CSC302")
+        course = Course.objects.get(code="CSC303")
         self.assertEqual(course.department, self.department)
+
+    def test_add_course_rejects_semester_mismatched_code(self):
+        response = self.client.post(
+            reverse("courses:course_add"),
+            {"code": "CSC302", "title": "Bad Code", "units": 3, "level": 300, "semester": "first"},
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(Course.objects.filter(code="CSC302").exists())
+        self.assertContains(response, "should end in an odd digit")
 
     def test_edit_own_course_succeeds(self):
         response = self.client.post(
@@ -349,7 +388,7 @@ class MyCoursesTests(TestCase):
             department=self.department, level=300, semester="first", lecturer=self.lecturer,
         )
         self.other_course = Course.objects.create(
-            code="CSC302", title="Compilers", units=3,
+            code="CSC303", title="Compilers", units=3,
             department=self.department, level=300, semester="first", lecturer=self.other_lecturer,
         )
 
@@ -358,7 +397,7 @@ class MyCoursesTests(TestCase):
     def test_lists_only_own_courses(self):
         response = self.client.get(reverse("courses:my_courses"))
         self.assertContains(response, "CSC301")
-        self.assertNotContains(response, "CSC302")
+        self.assertNotContains(response, "CSC303")
 
     def test_non_lecturer_gets_403(self):
         make_admin()

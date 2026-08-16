@@ -35,7 +35,7 @@ class Course(models.Model):
         ordering = ["code"]
 
     def save(self, *args, **kwargs):
-        self.code = format_course_code(self.code, self.level)
+        self.code = format_course_code(self.code, self.level, self.semester)
         super().save(*args, **kwargs)
 
     def __str__(self):

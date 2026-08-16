@@ -32,14 +32,37 @@ def register(request):
         form = CourseSelectionForm(request.POST, queryset=available_courses)
         if form.is_valid():
             selected_courses = form.cleaned_data["courses"]
-            for course in selected_courses:
-                registration = CourseRegistration(
-                    student=profile, course=course, session=session, semester=semester
+            existing_units = sum(
+                r.course.units
+                for r in profile.registrations.filter(session=session, semester=semester).select_related("course")
+            )
+            total_units = existing_units + sum(c.units for c in selected_courses)
+
+            # NUC caps a semester's load at MAX_SEMESTER_UNITS - always enforced, since
+            # exceeding it is never valid regardless of how registration is split across
+            # visits.
+            if total_units > settings.MAX_SEMESTER_UNITS:
+                messages.error(
+                    request,
+                    f"Registering for these courses would bring your total to {total_units} "
+                    f"units - the maximum allowed per semester is {settings.MAX_SEMESTER_UNITS}.",
                 )
-                registration.full_clean()
-                registration.save()
-            messages.success(request, f"Registered for {len(selected_courses)} course(s).")
-            return redirect("courses:my_registrations")
+            else:
+                for course in selected_courses:
+                    registration = CourseRegistration(
+                        student=profile, course=course, session=session, semester=semester
+                    )
+                    registration.full_clean()
+                    registration.save()
+                messages.success(request, f"Registered for {len(selected_courses)} course(s).")
+                if total_units < settings.MIN_SEMESTER_UNITS:
+                    messages.warning(
+                        request,
+                        f"You're now registered for {total_units} units this semester - the "
+                        f"NUC minimum is {settings.MIN_SEMESTER_UNITS}. You may need to register "
+                        "for more.",
+                    )
+                return redirect("courses:my_registrations")
     else:
         form = CourseSelectionForm(queryset=available_courses)
 

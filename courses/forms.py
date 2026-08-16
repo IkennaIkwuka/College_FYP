@@ -14,15 +14,17 @@ class CourseForm(BootstrapFormMixin, forms.ModelForm):
         fields = ["code", "title", "units", "level", "semester", "lecturer", "is_active"]
 
     def clean(self):
-        # Needs both code and level together (to cross-check the code's leading
-        # digit against the level), so this has to be the whole-form clean() -
-        # clean_code() alone can't rely on "level" already being in cleaned_data.
+        # Needs code, level, and semester together (to cross-check the code's
+        # leading digit against the level and trailing digit against the semester),
+        # so this has to be the whole-form clean() - clean_code() alone can't rely
+        # on the other fields already being in cleaned_data.
         cleaned_data = super().clean()
         code = cleaned_data.get("code")
         level = cleaned_data.get("level")
-        if code and level:
+        semester = cleaned_data.get("semester")
+        if code and level and semester:
             try:
-                cleaned_data["code"] = format_course_code(code, int(level))
+                cleaned_data["code"] = format_course_code(code, int(level), semester)
             except InvalidAcademicID as e:
                 self.add_error("code", str(e))
         return cleaned_data

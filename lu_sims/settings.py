@@ -73,6 +73,14 @@ CURRENT_SESSION = '2025/2026'
 # 'second' at each actual semester changeover (twice a year, unlike CURRENT_SESSION).
 CURRENT_SEMESTER = 'first'
 
+# NUC's mandated credit-unit range per semester (excludes project/thesis semesters,
+# which this system doesn't model separately). MAX is enforced as a hard block on
+# every registration - exceeding it is never valid. MIN is enforced as a heads-up
+# warning rather than a block, since this system has no "finalize registration" step -
+# a student legitimately builds up to their full load across more than one visit.
+MIN_SEMESTER_UNITS = 15
+MAX_SEMESTER_UNITS = 24
+
 # Defaults to the console backend (prints instead of sending) unless real SMTP settings
 # are supplied via .env - see .env.example. Nothing here changes local dev behavior until
 # a .env is deliberately created with real values for an actual deployment.
