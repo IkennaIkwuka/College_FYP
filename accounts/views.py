@@ -37,6 +37,7 @@ def register(request):
                 email=form.cleaned_data["email"],
                 department=form.cleaned_data["department"],
                 entry_level=form.cleaned_data["level"],
+                admission_type=form.cleaned_data["admission_type"],
             )
             try:
                 send_mail(

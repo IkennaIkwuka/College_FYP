@@ -2,7 +2,7 @@ from django import forms
 from django.contrib.auth.forms import AuthenticationForm, SetPasswordForm
 from django.contrib.auth.models import Group
 from django.core.exceptions import ValidationError
-from students.models import LEVEL_CHOICES, Department, StudentProfile
+from students.models import ADMISSION_TYPE_CHOICES, LEVEL_CHOICES, Department, StudentProfile
 
 from .models import ADMIN_GROUP, BURSAR_GROUP, DEAN_GROUP, HOD_GROUP, LECTURER_GROUP, REGISTRAR_GROUP, User
 
@@ -85,6 +85,7 @@ class StudentAccountForm(BootstrapFormMixin, forms.Form):
     matric_number = forms.CharField(max_length=20)
     department = forms.ModelChoiceField(queryset=Department.objects.all())
     level = forms.ChoiceField(choices=LEVEL_CHOICES)
+    admission_type = forms.ChoiceField(choices=ADMISSION_TYPE_CHOICES)
 
     def clean_matric_number(self):
         matric_number = self.cleaned_data["matric_number"].strip().upper()

@@ -22,6 +22,7 @@
                     <tr><th>Department</th><td>{{ profile.department }}</td></tr>
                     <tr><th>Entry Level</th><td>{{ profile.get_entry_level_display }}</td></tr>
                     <tr><th>Current Level</th><td>{{ profile.current_level_display }}</td></tr>
+                    <tr><th>Admission Type</th><td>{{ profile.get_admission_type_display }}</td></tr>
                     <tr><th>Date of birth</th><td>{{ profile.date_of_birth|default:"-" }}</td></tr>
                     <tr><th>Gender</th><td>{{ profile.get_gender_display|default:"-" }}</td></tr>
                     <tr><th>Phone number</th><td>{{ profile.phone_number|default:"-" }}</td></tr>

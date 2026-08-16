@@ -11,6 +11,7 @@
             <thead>
                 <tr>
                     <th>Name</th>
+                    <th>Faculty</th>
                     <th>HOD</th>
                     <th></th>
                 </tr>
@@ -19,6 +20,7 @@
                 {% for department in departments %}
                     <tr>
                         <td>{{ department.name }}</td>
+                        <td>{{ department.faculty|default:"Unassigned" }}</td>
                         <td>{{ department.hod|default:"Unassigned" }}</td>
                         <td class="text-end">
                             <a href="{% url 'students:department_edit' department.id %}" class="btn btn-outline-secondary btn-sm">Edit</a>

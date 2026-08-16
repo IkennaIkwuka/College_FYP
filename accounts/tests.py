@@ -158,6 +158,7 @@ class AdminOnlyViewsTests(TestCase):
                 "matric_number": "2023/CSC/099",
                 "department": self.department.id,
                 "level": 100,
+                "admission_type": "UTME",
             },
         )
         self.assertRedirects(response, reverse("accounts:register"))

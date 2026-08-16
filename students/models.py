@@ -1,6 +1,6 @@
 from datetime import timedelta
 
-from accounts.models import HOD_GROUP
+from accounts.models import DEAN_GROUP, HOD_GROUP
 from django.conf import settings
 from django.contrib.auth.hashers import check_password, make_password
 from django.db import models
@@ -19,9 +19,42 @@ GENDER_CHOICES = [
     ("F", "Female"),
 ]
 
+ADMISSION_TYPE_CHOICES = [
+    ("UTME", "UTME (Regular Entry)"),
+    ("DE", "Direct Entry"),
+    ("TRANSFER_INTRA", "Transfer (Intra-Faculty)"),
+    ("TRANSFER_INTER", "Transfer (Inter-Faculty)"),
+]
+
+
+class Faculty(models.Model):
+    name = models.CharField(max_length=100, unique=True)
+    dean = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="faculty_headed",
+        limit_choices_to={"groups__name": DEAN_GROUP},
+    )
+
+    class Meta:
+        ordering = ["name"]
+        verbose_name_plural = "faculties"
+
+    def __str__(self):
+        return self.name
+
 
 class Department(models.Model):
     name = models.CharField(max_length=100, unique=True)
+    faculty = models.ForeignKey(
+        Faculty,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="departments",
+    )
     hod = models.OneToOneField(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
@@ -51,6 +84,7 @@ class StudentProfile(models.Model):
     # its own every time settings.CURRENT_SESSION is bumped for a new academic year.
     entry_level = models.PositiveSmallIntegerField(choices=LEVEL_CHOICES)
     entry_session = models.CharField(max_length=9, help_text="e.g. 2025/2026")
+    admission_type = models.CharField(max_length=20, choices=ADMISSION_TYPE_CHOICES, default="UTME")
     date_of_birth = models.DateField(null=True, blank=True)
     gender = models.CharField(max_length=1, choices=GENDER_CHOICES, blank=True)
     phone_number = models.CharField(max_length=20, blank=True)

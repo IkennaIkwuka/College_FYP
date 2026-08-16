@@ -266,6 +266,7 @@ class ManageStudentsTests(TestCase):
                 "matric_number": "2023/CSC/095",
                 "department": self.department.id,
                 "entry_level": 200,
+                "admission_type": "UTME",
                 "date_of_birth": "",
                 "gender": "",
                 "phone_number": "08011112222",

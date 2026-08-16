@@ -20,6 +20,12 @@
                 <option value="{{ level }}" {% if selected_entry_level == level|stringformat:"s" %}selected{% endif %}>{{ label }}</option>
             {% endfor %}
         </select>
+        <select name="admission_type" class="form-select" style="max-width: 220px;" onchange="this.form.submit()">
+            <option value="">All admission types</option>
+            {% for value, label in admission_types %}
+                <option value="{{ value }}" {% if selected_admission_type == value %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+        </select>
     </form>
 
     {% if profiles %}

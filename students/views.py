@@ -10,8 +10,8 @@ from django.db import transaction
 from django.db.models import Q
 from django.shortcuts import get_object_or_404, redirect, render
 
-from .forms import BulkImportForm, DepartmentForm, StudentEditForm, StudentProfileForm
-from .models import LEVEL_CHOICES, Department, StudentProfile
+from .forms import BulkImportForm, DepartmentForm, FacultyForm, StudentEditForm, StudentProfileForm
+from .models import ADMISSION_TYPE_CHOICES, LEVEL_CHOICES, Department, Faculty, StudentProfile
 from .services import create_student_account
 
 REQUIRED_COLUMNS = {"matric_number", "first_name", "last_name", "email", "department", "level"}
@@ -182,6 +182,42 @@ def lookup(request):
 
 
 @admin_required
+def manage_faculties(request):
+    faculties = Faculty.objects.all()
+    return render(request, "students/manage_faculties.html", {"faculties": faculties})
+
+
+@admin_required
+def faculty_add(request):
+    if request.method == "POST":
+        form = FacultyForm(request.POST)
+        if form.is_valid():
+            faculty = form.save()
+            messages.success(request, f"Added {faculty.name}.")
+            return redirect("students:manage_faculties")
+    else:
+        form = FacultyForm()
+
+    return render(request, "students/faculty_form.html", {"form": form, "title": "Add Faculty"})
+
+
+@admin_required
+def faculty_edit(request, pk):
+    faculty = get_object_or_404(Faculty, pk=pk)
+
+    if request.method == "POST":
+        form = FacultyForm(request.POST, instance=faculty)
+        if form.is_valid():
+            form.save()
+            messages.success(request, f"Updated {faculty.name}.")
+            return redirect("students:manage_faculties")
+    else:
+        form = FacultyForm(instance=faculty)
+
+    return render(request, "students/faculty_form.html", {"form": form, "title": f"Edit {faculty.name}"})
+
+
+@admin_required
 def manage_departments(request):
     departments = Department.objects.all()
     return render(request, "students/manage_departments.html", {"departments": departments})
@@ -224,6 +260,7 @@ def manage_students(request):
     query = request.GET.get("q", "").strip()
     department_id = request.GET.get("department", "").strip()
     entry_level = request.GET.get("entry_level", "").strip()
+    admission_type = request.GET.get("admission_type", "").strip()
 
     profiles = StudentProfile.objects.select_related("user", "department").order_by("matric_number")
     if query:
@@ -236,6 +273,8 @@ def manage_students(request):
         profiles = profiles.filter(department_id=department_id)
     if entry_level:
         profiles = profiles.filter(entry_level=entry_level)
+    if admission_type:
+        profiles = profiles.filter(admission_type=admission_type)
 
     paginator = Paginator(profiles, 10)
     profiles = paginator.get_page(request.GET.get("page"))
@@ -253,8 +292,10 @@ def manage_students(request):
             "querystring": querystring,
             "departments": Department.objects.all(),
             "levels": LEVEL_CHOICES,
+            "admission_types": ADMISSION_TYPE_CHOICES,
             "selected_department": department_id,
             "selected_entry_level": entry_level,
+            "selected_admission_type": admission_type,
         },
     )
 
