@@ -1,3 +1,5 @@
+import re
+
 from django.conf import settings
 from django.contrib.auth.models import Group
 from django.core import mail
@@ -49,7 +51,7 @@ def make_dean(username="dean1"):
 class LoginTests(TestCase):
     def setUp(self):
         self.department = Department.objects.create(name="Computer Science")
-        self.profile, self.pin = create_student_account(
+        self.profile = create_student_account(
             matric_number="2023/CSC/030",
             first_name="Jane",
             last_name="Doe",
@@ -80,7 +82,7 @@ class LoginTests(TestCase):
 class ForcedPasswordChangeTests(TestCase):
     def setUp(self):
         self.department = Department.objects.create(name="Computer Science")
-        self.profile, self.pin = create_student_account(
+        self.profile = create_student_account(
             matric_number="2023/CSC/031",
             first_name="John",
             last_name="Smith",
@@ -88,20 +90,27 @@ class ForcedPasswordChangeTests(TestCase):
             department=self.department,
             entry_level=300,
         )
+        # No PIN is issued at creation anymore - set one directly, as if the student
+        # had already gone through "Send code" themselves.
+        self.profile.set_pin("123456")
+        self.profile.save(update_fields=["pin_hash"])
         self.client.login(username=self.profile.user.username, password=settings.DEFAULT_PASSWORD)
 
-    def test_redirected_to_change_password(self):
+    def _verify_pin(self):
+        return self.client.post(reverse("accounts:verify_pin"), {"pin": "123456"})
+
+    def test_redirected_to_verify_pin(self):
         response = self.client.get(reverse("dashboard"))
-        self.assertRedirects(response, reverse("accounts:change_password"))
+        self.assertRedirects(response, reverse("accounts:verify_pin"))
 
     def test_flag_clears_after_change(self):
+        self._verify_pin()
         # No old_password field - first-time change deliberately doesn't ask for it.
         self.client.post(
             reverse("accounts:change_password"),
             {
                 "new_password1": "N3wPassw0rd!",
                 "new_password2": "N3wPassw0rd!",
-                "pin": self.pin,
             },
         )
         self.profile.user.refresh_from_db()
@@ -109,11 +118,12 @@ class ForcedPasswordChangeTests(TestCase):
         self.assertRedirects(self.client.get(reverse("dashboard")), reverse("student_dashboard"))
 
     def test_weak_password_rejected(self):
+        self._verify_pin()
         # all-lowercase, no digit or symbol - fails ComplexityValidator even though
         # it clears the length requirement on its own.
         response = self.client.post(
             reverse("accounts:change_password"),
-            {"new_password1": "weakpassword", "new_password2": "weakpassword", "pin": self.pin},
+            {"new_password1": "weakpassword", "new_password2": "weakpassword"},
         )
         self.profile.user.refresh_from_db()
         self.assertEqual(response.status_code, 200)
@@ -125,7 +135,7 @@ class AdminOnlyViewsTests(TestCase):
         self.department = Department.objects.create(name="Computer Science")
         self.admin_user = make_admin()
 
-        self.student_profile, _ = create_student_account(
+        self.student_profile = create_student_account(
             matric_number="2023/CSC/032",
             first_name="Ann",
             last_name="Lee",
@@ -176,8 +186,9 @@ class AdminOnlyViewsTests(TestCase):
         )
         self.assertRedirects(response, reverse("accounts:register"))
         self.assertTrue(StudentProfile.objects.filter(matric_number="2023/CSC/099").exists())
-        self.assertEqual(len(mail.outbox), 1)
-        self.assertIn("PIN", mail.outbox[0].subject)
+        # No PIN is issued at creation anymore - the student requests one themselves
+        # at first login (accounts:send_pin_code).
+        self.assertEqual(len(mail.outbox), 0)
 
     def test_admin_can_add_staff(self):
         self.client.login(username="admin", password="pass12345")
@@ -380,7 +391,7 @@ class ProfilePageTests(TestCase):
 
     def test_student_redirected_to_own_profile_page(self):
         department = Department.objects.create(name="Chemistry")
-        profile, _ = create_student_account(
+        profile = create_student_account(
             matric_number="2023/CSC/060",
             first_name="Sara",
             last_name="Lee",
@@ -398,7 +409,7 @@ class ProfilePageTests(TestCase):
 class DashboardRoutingTests(TestCase):
     def setUp(self):
         self.department = Department.objects.create(name="Computer Science")
-        self.student_profile, _ = create_student_account(
+        self.student_profile = create_student_account(
             matric_number="2023/CSC/050",
             first_name="Sam",
             last_name="Okoro",
@@ -493,7 +504,7 @@ class DashboardRoutingTests(TestCase):
 class PinVerificationTests(TestCase):
     def setUp(self):
         self.department = Department.objects.create(name="Computer Science")
-        self.profile, self.pin = create_student_account(
+        self.profile = create_student_account(
             matric_number="2023/CSC/060",
             first_name="Ngozi",
             last_name="Eze",
@@ -503,42 +514,70 @@ class PinVerificationTests(TestCase):
         )
         self.client.login(username=self.profile.user.username, password=settings.DEFAULT_PASSWORD)
 
-    def _change_password(self, pin):
+    def _send_code(self):
+        response = self.client.post(reverse("accounts:send_pin_code"))
+        match = re.search(r"PIN: (\d{6})", mail.outbox[-1].body)
+        return response, match.group(1)
+
+    def _verify(self, pin):
+        return self.client.post(reverse("accounts:verify_pin"), {"pin": pin})
+
+    def _change_password(self):
         return self.client.post(
             reverse("accounts:change_password"),
-            {"new_password1": "N3wPassw0rd!", "new_password2": "N3wPassw0rd!", "pin": pin},
+            {"new_password1": "N3wPassw0rd!", "new_password2": "N3wPassw0rd!"},
         )
 
+    def test_send_code_emails_a_pin(self):
+        self._send_code()
+        self.profile.refresh_from_db()
+        self.assertTrue(self.profile.pin_hash)
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertIn("PIN", mail.outbox[0].subject)
+
+    def test_verifying_without_sending_code_shows_clear_error(self):
+        response = self._verify("123456")
+        self.assertContains(response, "No code has been sent yet")
+
     def test_correct_pin_allows_password_change(self):
-        self._change_password(self.pin)
+        _, pin = self._send_code()
+        self._verify(pin)
+        self._change_password()
         self.profile.user.refresh_from_db()
         self.assertFalse(self.profile.user.must_change_password)
         self.assertTrue(self.profile.user.check_password("N3wPassw0rd!"))
 
     def test_wrong_pin_rejected(self):
-        response = self._change_password("000000")
+        self._send_code()
+        response = self._verify("000000")
+        self.assertContains(response, "Incorrect code")
         self.profile.user.refresh_from_db()
-        self.assertEqual(response.status_code, 200)
         self.assertTrue(self.profile.user.must_change_password)
-        self.assertFalse(self.profile.user.check_password("N3wPassw0rd!"))
 
     def test_lockout_after_max_attempts(self):
+        _, pin = self._send_code()
         for _ in range(settings.PIN_MAX_ATTEMPTS):
-            self._change_password("000000")
+            self._verify("000000")
         self.profile.refresh_from_db()
         self.assertTrue(self.profile.is_pin_locked)
 
         # Even the correct PIN is rejected once locked.
-        response = self._change_password(self.pin)
-        self.assertContains(response, "Too many wrong PIN attempts")
+        response = self._verify(pin)
+        self.assertContains(response, "Too many wrong attempts")
         self.profile.user.refresh_from_db()
         self.assertTrue(self.profile.user.must_change_password)
 
-    def test_staff_forced_password_change_has_no_pin_field(self):
+    def test_staff_skips_verify_pin_entirely(self):
         staff = make_admin()
         staff.must_change_password = True
         staff.save(update_fields=["must_change_password"])
         self.client.login(username="admin", password="pass12345")
+
+        # Staff have no student_profile, so the middleware sends them straight to
+        # change_password - hitting verify_pin directly should bounce them past it.
+        response = self.client.get(reverse("accounts:verify_pin"))
+        self.assertRedirects(response, reverse("accounts:change_password"))
+
         response = self.client.get(reverse("accounts:change_password"))
         self.assertNotContains(response, 'name="pin"')
 

@@ -1,0 +1,41 @@
+{% extends "accounts/base.html" %}
+
+{% block title %}Verify Code - LU-SIMS{% endblock %}
+
+{% block content %}
+    <div class="row justify-content-center">
+        <div class="col-12 col-md-6 col-lg-4">
+            <div class="card shadow-sm mt-4">
+                <div class="card-body p-4">
+                    <h1 class="h3 mb-3 text-center">Verify It's You</h1>
+                    <p class="alert alert-warning">
+                        This is your first time logging in. We need to confirm you own the email
+                        on file before you can set a new password.
+                    </p>
+
+                    <form method="post" action="{% url 'accounts:send_pin_code' %}" class="mb-3">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-outline-secondary btn-sm">Send code</button>
+                    </form>
+
+                    {% if form.non_field_errors %}
+                        <div class="alert alert-danger">{{ form.non_field_errors }}</div>
+                    {% endif %}
+
+                    <form method="post">
+                        {% csrf_token %}
+                        <div class="mb-3">
+                            <label for="{{ form.pin.id_for_label }}" class="form-label">Verification code</label>
+                            {{ form.pin }}
+                            {% for error in form.pin.errors %}
+                                <div class="text-danger small">{{ error }}</div>
+                            {% endfor %}
+                            <div class="form-text">Click "Send code" above to have it emailed to you.</div>
+                        </div>
+                        <button type="submit" class="btn btn-primary w-100">Verify</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock %}

@@ -4,12 +4,11 @@ from django.contrib.auth import views as auth_views
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import Group
 from django.core.exceptions import PermissionDenied
-from django.core.mail import send_mail
 from django.core.paginator import Paginator
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse_lazy
 
-from students.services import create_student_account
+from students.services import create_student_account, reset_student_pin, send_pin_email
 
 from .decorators import (
     admin_required,
@@ -20,7 +19,15 @@ from .decorators import (
     registrar_required,
     student_required,
 )
-from .forms import STAFF_GROUPS, ChangePasswordForm, LoginForm, StaffAccountForm, StaffEditForm, StudentAccountForm
+from .forms import (
+    STAFF_GROUPS,
+    ChangePasswordForm,
+    LoginForm,
+    PinVerificationForm,
+    StaffAccountForm,
+    StaffEditForm,
+    StudentAccountForm,
+)
 from .models import User
 from .services import assign_staff_identity, force_password_reset
 
@@ -30,7 +37,7 @@ def register(request):
     if request.method == "POST":
         form = StudentAccountForm(request.POST)
         if form.is_valid():
-            profile, raw_pin = create_student_account(
+            profile = create_student_account(
                 matric_number=form.cleaned_data["matric_number"],
                 first_name=form.cleaned_data["first_name"],
                 last_name=form.cleaned_data["last_name"],
@@ -39,29 +46,12 @@ def register(request):
                 entry_level=form.cleaned_data["level"],
                 admission_type=form.cleaned_data["admission_type"],
             )
-            try:
-                send_mail(
-                    subject="Your LU-SIMS PIN",
-                    message=(
-                        f"Matric number: {profile.matric_number}\n"
-                        f"PIN: {raw_pin}\n\n"
-                        f'Log in with your username "{profile.user.username}" and the '
-                        f'default password "{settings.DEFAULT_PASSWORD}", then enter this '
-                        "PIN when prompted to set your own password."
-                    ),
-                    from_email=None,
-                    recipient_list=[profile.user.email],
-                )
-            except Exception:
-                messages.warning(
-                    request,
-                    f"Could not send the PIN email to {profile.user.email}. Follow up manually.",
-                )
             messages.success(
                 request,
                 f"Student {form.cleaned_data['matric_number']} added. "
                 f'Their username is "{profile.user.username}"; '
-                f"initial password is \"{settings.DEFAULT_PASSWORD}\".",
+                f'initial password is "{settings.DEFAULT_PASSWORD}". '
+                "They'll request a verification code themselves at first login.",
             )
             return redirect("accounts:register")
     else:
@@ -264,3 +254,44 @@ class ForcedPasswordChangeView(auth_views.PasswordChangeView):
         self.request.user.save(update_fields=["must_change_password"])
         messages.success(self.request, "Password changed.")
         return response
+
+
+@login_required
+def verify_pin(request):
+    # Only students mid forced-first-login belong here at all - anyone else (already
+    # changed their password, or a staff account with no PIN) gets sent past it.
+    if not request.user.must_change_password:
+        return redirect("dashboard")
+    student_profile = getattr(request.user, "student_profile", None)
+    if student_profile is None or request.session.get("pin_verified"):
+        return redirect("accounts:change_password")
+
+    if request.method == "POST":
+        form = PinVerificationForm(request.POST, student_profile=student_profile)
+        if form.is_valid():
+            request.session["pin_verified"] = True
+            return redirect("accounts:change_password")
+    else:
+        form = PinVerificationForm(student_profile=student_profile)
+
+    return render(request, "accounts/verify_pin.html", {"form": form})
+
+
+@login_required
+def send_pin_code(request):
+    if not request.user.must_change_password:
+        return redirect("dashboard")
+    student_profile = getattr(request.user, "student_profile", None)
+    if student_profile is None:
+        return redirect("accounts:change_password")
+
+    if request.method == "POST":
+        raw_pin = reset_student_pin(student_profile)
+        try:
+            send_pin_email(student_profile, raw_pin)
+            messages.success(request, f"Code sent to {request.user.email}.")
+        except Exception:
+            messages.warning(
+                request, f"Could not send the code to {request.user.email}. Try again shortly."
+            )
+    return redirect("accounts:verify_pin")

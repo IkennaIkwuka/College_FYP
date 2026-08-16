@@ -27,7 +27,7 @@ def make_lecturer(username):
 
 
 def make_student(matric_number, department, level):
-    profile, _ = create_student_account(
+    profile = create_student_account(
         matric_number=matric_number,
         first_name="Test",
         last_name="Student",

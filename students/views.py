@@ -5,7 +5,6 @@ from accounts.decorators import admin_required, registrar_required, student_requ
 from accounts.services import force_password_reset
 from django.conf import settings
 from django.contrib import messages
-from django.core.mail import send_mail
 from django.core.paginator import Paginator
 from django.db import transaction
 from django.db.models import Q
@@ -14,7 +13,7 @@ from django.urls import reverse
 
 from .forms import BulkImportForm, DepartmentForm, FacultyForm, StudentEditForm, StudentProfileForm
 from .models import ADMISSION_TYPE_CHOICES, LEVEL_CHOICES, Department, Faculty, StudentProfile
-from .services import create_student_account, reset_student_pin
+from .services import create_student_account, reset_student_pin, send_pin_email
 
 REQUIRED_COLUMNS = {"matric_number", "first_name", "last_name", "email", "department", "level"}
 OPTIONAL_COLUMNS = {"date_of_birth", "gender", "phone_number", "address"}
@@ -101,7 +100,6 @@ def bulk_import(request):
                     # transaction.atomic() makes all these creates succeed or fail together -
                     # if row 50 of 100 somehow raised an unexpected error, rows 1-49 would be
                     # rolled back too instead of leaving a half-imported file.
-                    created = []
                     with transaction.atomic():
                         for row in rows:
                             department = Department.objects.get(name__iexact=row["department"].strip())
@@ -110,7 +108,7 @@ def bulk_import(request):
                                 for field in OPTIONAL_COLUMNS
                                 if row.get(field, "").strip()
                             }
-                            profile, raw_pin = create_student_account(
+                            create_student_account(
                                 matric_number=row["matric_number"],
                                 first_name=row["first_name"].strip(),
                                 last_name=row["last_name"].strip(),
@@ -119,37 +117,8 @@ def bulk_import(request):
                                 entry_level=int(row["level"]),
                                 **optional_fields,
                             )
-                            created.append((profile, raw_pin))
-
-                    # PIN emails go out AFTER the transaction commits - sending a batch of
-                    # emails while holding a write lock open is expensive under SQLite's
-                    # single-writer model, and a send_mail failure shouldn't roll back
-                    # student accounts that are already correctly persisted.
-                    failed_emails = []
-                    for profile, raw_pin in created:
-                        try:
-                            send_mail(
-                                subject="Your LU-SIMS PIN",
-                                message=(
-                                    f"Matric number: {profile.matric_number}\n"
-                                    f"PIN: {raw_pin}\n\n"
-                                    f'Log in with your username "{profile.user.username}" and the '
-                                    f'default password "{settings.DEFAULT_PASSWORD}", then enter this '
-                                    "PIN when prompted to set your own password."
-                                ),
-                                from_email=None,
-                                recipient_list=[profile.user.email],
-                            )
-                        except Exception:
-                            failed_emails.append(profile.user.email)
 
                     messages.success(request, f"Imported {len(rows)} students.")
-                    if failed_emails:
-                        messages.warning(
-                            request,
-                            f"Could not send the PIN email to: {', '.join(failed_emails)}. "
-                            "Follow up with them manually.",
-                        )
                     return redirect("students:bulk_import")
     else:
         form = BulkImportForm()
@@ -208,18 +177,7 @@ def student_reset_pin(request, pk):
     if request.method == "POST":
         raw_pin = reset_student_pin(profile)
         try:
-            send_mail(
-                subject="Your LU-SIMS PIN",
-                message=(
-                    f"Matric number: {profile.matric_number}\n"
-                    f"PIN: {raw_pin}\n\n"
-                    f'Log in with your username "{profile.user.username}" and the '
-                    f'default password "{settings.DEFAULT_PASSWORD}", then enter this '
-                    "PIN when prompted to set your own password."
-                ),
-                from_email=None,
-                recipient_list=[profile.user.email],
-            )
+            send_pin_email(profile, raw_pin)
             messages.success(request, f"PIN reset for {profile.matric_number}. New PIN emailed.")
         except Exception:
             messages.warning(

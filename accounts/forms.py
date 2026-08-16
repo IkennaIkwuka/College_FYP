@@ -1,7 +1,6 @@
 from django import forms
 from django.contrib.auth.forms import AuthenticationForm, SetPasswordForm
 from django.contrib.auth.models import Group
-from django.core.exceptions import ValidationError
 from lu_sims.id_format import InvalidAcademicID, format_academic_id
 from students.models import ADMISSION_TYPE_CHOICES, LEVEL_CHOICES, Department, StudentProfile
 
@@ -41,42 +40,54 @@ class ChangePasswordForm(BootstrapFormMixin, SetPasswordForm):
     default password, and asking them to also type that default password back in
     as "confirm your old password" would just be an extra step for no real benefit.
 
-    For students specifically, a PIN field is added on top - the shared default
-    password alone doesn't prove they own the email it was set up for, so a PIN
-    emailed at account-creation time closes that gap before letting them replace it
-    with something only they know. Staff accounts have no student_profile, so they
-    get no PIN field at all - this form behaves exactly as it always has for them.
+    For students, proving they own the email on file happens earlier now - the
+    verify-pin step (accounts:verify_pin) that the forced-password-change middleware
+    routes them through first - so this form itself no longer needs to know anything
+    about PINs or student_profile at all.
     """
 
-    def __init__(self, *args, **kwargs):
+
+class PinVerificationForm(BootstrapFormMixin, forms.Form):
+    """First-login gate for students, ahead of ChangePasswordForm.
+
+    Deliberately its own step rather than a field bolted onto the password form -
+    the student may need to click "send code" (accounts:send_pin_code) before they
+    have anything to type here at all, which doesn't fit inside a single submission.
+    """
+
+    pin = forms.CharField(
+        max_length=6,
+        label="Verification code",
+        widget=forms.TextInput(attrs={"placeholder": "000000", "inputmode": "numeric", "autocomplete": "one-time-code"}),
+    )
+
+    def __init__(self, *args, student_profile, **kwargs):
+        self.student_profile = student_profile
         super().__init__(*args, **kwargs)
-        self.student_profile = getattr(self.user, "student_profile", None)
-        if self.student_profile is not None:
-            self.fields["pin"] = forms.CharField(
-                max_length=6, label="PIN", widget=forms.PasswordInput(render_value=False)
-            )
-            self.fields["pin"].widget.attrs["class"] = "form-control"
 
-    def clean(self):
-        cleaned = super().clean()
-        if self.student_profile is not None:
-            # Lazily clear an expired lockout - no cron/Celery needed, the next attempt
-            # after the cooldown passes just resets the counter right here.
-            if self.student_profile.pin_locked_until is not None and not self.student_profile.is_pin_locked:
-                self.student_profile.reset_pin_attempts()
+    def clean_pin(self):
+        pin = self.cleaned_data["pin"]
+        profile = self.student_profile
 
-            if self.student_profile.is_pin_locked:
-                raise ValidationError("Too many wrong PIN attempts. Try again later.")
+        # Lazily clear an expired lockout - no cron/Celery needed, the next attempt
+        # after the cooldown passes just resets the counter right here.
+        if profile.pin_locked_until is not None and not profile.is_pin_locked:
+            profile.reset_pin_attempts()
 
-            pin = cleaned.get("pin")
-            if pin and not self.student_profile.check_pin(pin):
-                self.student_profile.register_failed_pin_attempt()
-                if self.student_profile.is_pin_locked:
-                    raise ValidationError("Too many wrong PIN attempts. Try again later.")
-                self.add_error("pin", "Incorrect PIN.")
-            elif pin:
-                self.student_profile.reset_pin_attempts()
-        return cleaned
+        if profile.is_pin_locked:
+            raise forms.ValidationError("Too many wrong attempts. Try again later.")
+
+        if not profile.pin_hash:
+            raise forms.ValidationError('No code has been sent yet - click "Send code" first.')
+
+        if not profile.check_pin(pin):
+            profile.register_failed_pin_attempt()
+            if profile.is_pin_locked:
+                raise forms.ValidationError("Too many wrong attempts. Try again later.")
+            raise forms.ValidationError("Incorrect code.")
+
+        profile.reset_pin_attempts()
+        return pin
 
 
 class StudentAccountForm(BootstrapFormMixin, forms.Form):

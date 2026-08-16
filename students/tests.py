@@ -52,7 +52,7 @@ class BulkImportTests(TestCase):
         self.assertTrue(student.user.check_password(settings.DEFAULT_PASSWORD))
         self.assertTrue(student.user.must_change_password)
         self.assertTrue(student.user.groups.filter(name="Student").exists())
-        self.assertEqual(len(mail.outbox), 2)
+        self.assertEqual(len(mail.outbox), 0)
 
     def test_bad_department_creates_nothing(self):
         content = (
@@ -77,7 +77,7 @@ class LookupTests(TestCase):
         self.department = Department.objects.create(name="Computer Science")
         self.admin = make_admin()
         self.client.login(username="admin", password="pass12345")
-        self.profile, _ = create_student_account(
+        self.profile = create_student_account(
             matric_number="2023/CSC/005",
             first_name="Tolu",
             last_name="Ade",
@@ -138,7 +138,7 @@ class LookupTests(TestCase):
 class CurrentLevelTests(TestCase):
     def setUp(self):
         self.department = Department.objects.create(name="Computer Science")
-        self.profile, _ = create_student_account(
+        self.profile = create_student_account(
             matric_number="2023/CSC/006",
             first_name="Ada",
             last_name="Obi",
@@ -194,7 +194,7 @@ class DepartmentManagementTests(TestCase):
         self.assertNotIn("lect1", hod_queryset.values_list("username", flat=True))
 
     def test_non_admin_forbidden(self):
-        student, _ = create_student_account(
+        student = create_student_account(
             matric_number="2023/CSC/090", first_name="A", last_name="B",
             email="ab@example.com", department=self.department, entry_level=100,
         )
@@ -211,7 +211,7 @@ class DepartmentManagementTests(TestCase):
 class MyProfileTests(TestCase):
     def setUp(self):
         self.department = Department.objects.create(name="Computer Science")
-        self.profile, self.pin = create_student_account(
+        self.profile = create_student_account(
             matric_number="2023/CSC/091", first_name="Chidi", last_name="Nwosu",
             email="chidi91@example.com", department=self.department, entry_level=200,
         )
@@ -244,11 +244,11 @@ class ManageStudentsTests(TestCase):
     def setUp(self):
         self.department = Department.objects.create(name="Computer Science")
         self.other_department = Department.objects.create(name="Physics")
-        self.profile, _ = create_student_account(
+        self.profile = create_student_account(
             matric_number="2023/CSC/095", first_name="Ifeoma", last_name="Obiora",
             email="ifeoma95@example.com", department=self.department, entry_level=200,
         )
-        self.other_profile, _ = create_student_account(
+        self.other_profile = create_student_account(
             matric_number="2023/PHY/010", first_name="Bassey", last_name="Udoh",
             email="bassey10@example.com", department=self.other_department, entry_level=100,
         )
