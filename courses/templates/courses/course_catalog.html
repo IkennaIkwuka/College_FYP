@@ -1,0 +1,99 @@
+{% extends "accounts/base.html" %}
+
+{% block title %}Course Catalog - LU-SIMS{% endblock %}
+
+{% block content %}
+    <h1>Course Catalog</h1>
+    <p class="text-muted">All courses, university-wide.</p>
+
+    <form method="get" class="mb-4 d-flex flex-wrap gap-2 align-items-end">
+        <select name="department" class="form-select" style="max-width: 220px;" onchange="this.form.submit()">
+            <option value="">All departments</option>
+            {% for department in departments %}
+                <option value="{{ department.id }}" {% if selected_department == department.id|stringformat:"s" %}selected{% endif %}>{{ department.name }}</option>
+            {% endfor %}
+        </select>
+        <select name="level" class="form-select" style="max-width: 160px;" onchange="this.form.submit()">
+            <option value="">All levels</option>
+            {% for level, label in levels %}
+                <option value="{{ level }}" {% if selected_level == level|stringformat:"s" %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+        </select>
+        <select name="semester" class="form-select" style="max-width: 180px;" onchange="this.form.submit()">
+            <option value="">All semesters</option>
+            {% for value, label in semesters %}
+                <option value="{{ value }}" {% if selected_semester == value %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+        </select>
+        <select name="is_active" class="form-select" style="max-width: 160px;" onchange="this.form.submit()">
+            <option value="">All statuses</option>
+            <option value="1" {% if selected_is_active == "1" %}selected{% endif %}>Active</option>
+            <option value="0" {% if selected_is_active == "0" %}selected{% endif %}>Inactive</option>
+        </select>
+    </form>
+
+    <p class="text-muted">{{ courses.paginator.count }} course{{ courses.paginator.count|pluralize }}.</p>
+
+    {% if courses %}
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>Code</th>
+                    <th>Title</th>
+                    <th>Department</th>
+                    <th>Level</th>
+                    <th>Semester</th>
+                    <th>Lecturer</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for course in courses %}
+                    <tr>
+                        <td>{{ course.code }}</td>
+                        <td>{{ course.title }}</td>
+                        <td>{{ course.department }}</td>
+                        <td>{{ course.get_level_display }}</td>
+                        <td>{{ course.get_semester_display }}</td>
+                        <td>{{ course.lecturer|default:"-" }}</td>
+                        <td>
+                            {% if course.is_active %}
+                                <span class="badge bg-success">Active</span>
+                            {% else %}
+                                <span class="badge bg-secondary">Inactive</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        {% if courses.has_other_pages %}
+            <nav>
+                <ul class="pagination">
+                    <li class="page-item {% if not courses.has_previous %}disabled{% endif %}">
+                        {% if courses.has_previous %}
+                            <a class="page-link" href="?{{ querystring }}{% if querystring %}&{% endif %}page={{ courses.previous_page_number }}">Previous</a>
+                        {% else %}
+                            <span class="page-link">Previous</span>
+                        {% endif %}
+                    </li>
+                    <li class="page-item disabled"><span class="page-link">Page {{ courses.number }} of {{ courses.paginator.num_pages }}</span></li>
+                    <li class="page-item {% if not courses.has_next %}disabled{% endif %}">
+                        {% if courses.has_next %}
+                            <a class="page-link" href="?{{ querystring }}{% if querystring %}&{% endif %}page={{ courses.next_page_number }}">Next</a>
+                        {% else %}
+                            <span class="page-link">Next</span>
+                        {% endif %}
+                    </li>
+                </ul>
+            </nav>
+        {% endif %}
+    {% else %}
+        {% if selected_department or selected_level or selected_semester or selected_is_active %}
+            <p class="text-muted">No courses match the selected filters.</p>
+        {% else %}
+            <p class="text-muted">No courses yet.</p>
+        {% endif %}
+    {% endif %}
+{% endblock %}

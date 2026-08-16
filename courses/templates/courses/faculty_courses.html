@@ -1,17 +1,22 @@
 {% extends "accounts/base.html" %}
 
-{% block title %}Manage Courses - LU-SIMS{% endblock %}
+{% block title %}Faculty Courses - LU-SIMS{% endblock %}
 
 {% block content %}
-    <h1>Manage Courses</h1>
+    <h1>Faculty Courses</h1>
 
-    {% if not department %}
-        <p class="text-muted">You are not assigned as HOD of any department.</p>
+    {% if not faculty %}
+        <p class="text-muted">You are not assigned as Dean of any faculty.</p>
     {% else %}
-        <p class="text-muted">{{ department }}</p>
-        <a href="{% url 'courses:course_add' %}" class="btn btn-primary mb-3">Add Course</a>
+        <p class="text-muted">{{ faculty }}</p>
 
         <form method="get" class="mb-4 d-flex flex-wrap gap-2 align-items-end">
+            <select name="department" class="form-select" style="max-width: 220px;" onchange="this.form.submit()">
+                <option value="">All departments</option>
+                {% for department in departments %}
+                    <option value="{{ department.id }}" {% if selected_department == department.id|stringformat:"s" %}selected{% endif %}>{{ department.name }}</option>
+                {% endfor %}
+            </select>
             <select name="level" class="form-select" style="max-width: 160px;" onchange="this.form.submit()">
                 <option value="">All levels</option>
                 {% for level, label in levels %}
@@ -39,11 +44,11 @@
                     <tr>
                         <th>Code</th>
                         <th>Title</th>
+                        <th>Department</th>
                         <th>Level</th>
                         <th>Semester</th>
                         <th>Lecturer</th>
                         <th>Status</th>
-                        <th></th>
                     </tr>
                 </thead>
                 <tbody>
@@ -51,6 +56,7 @@
                         <tr>
                             <td>{{ course.code }}</td>
                             <td>{{ course.title }}</td>
+                            <td>{{ course.department }}</td>
                             <td>{{ course.get_level_display }}</td>
                             <td>{{ course.get_semester_display }}</td>
                             <td>{{ course.lecturer|default:"-" }}</td>
@@ -60,16 +66,6 @@
                                 {% else %}
                                     <span class="badge bg-secondary">Inactive</span>
                                 {% endif %}
-                            </td>
-                            <td class="text-end">
-                                <a href="{% url 'courses:course_edit' course.id %}" class="btn btn-outline-secondary btn-sm">Edit</a>
-                                <a href="{% url 'courses:course_registrations' course.id %}" class="btn btn-outline-secondary btn-sm">Registrations</a>
-                                <form method="post" action="{% url 'courses:course_toggle_active' course.id %}" class="d-inline">
-                                    {% csrf_token %}
-                                    <button type="submit" class="btn btn-outline-secondary btn-sm">
-                                        {% if course.is_active %}Deactivate{% else %}Activate{% endif %}
-                                    </button>
-                                </form>
                             </td>
                         </tr>
                     {% endfor %}
@@ -98,10 +94,10 @@
                 </nav>
             {% endif %}
         {% else %}
-            {% if selected_level or selected_semester or selected_is_active %}
+            {% if selected_department or selected_level or selected_semester or selected_is_active %}
                 <p class="text-muted">No courses match the selected filters.</p>
             {% else %}
-                <p class="text-muted">No courses in your department yet.</p>
+                <p class="text-muted">No courses in your faculty yet.</p>
             {% endif %}
         {% endif %}
     {% endif %}

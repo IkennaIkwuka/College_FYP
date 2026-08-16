@@ -2,9 +2,9 @@ from django.conf import settings
 from django.contrib import messages
 from django.core.paginator import Paginator
 from django.shortcuts import get_object_or_404, redirect, render
-from students.models import Department, LEVEL_CHOICES
+from students.models import Department, Faculty, LEVEL_CHOICES
 
-from accounts.decorators import hod_required, lecturer_required, student_required
+from accounts.decorators import dean_required, hod_required, lecturer_required, registrar_required, student_required
 
 from .forms import CourseForm, CourseSelectionForm
 from .models import SEMESTER_CHOICES, Course, CourseRegistration
@@ -108,6 +108,10 @@ def _hod_department(request):
     return Department.objects.filter(hod=request.user).first()
 
 
+def _dean_faculty(request):
+    return Faculty.objects.filter(dean=request.user).first()
+
+
 @hod_required
 def manage_courses(request):
     department = _hod_department(request)
@@ -142,6 +146,103 @@ def manage_courses(request):
             "querystring": querystring,
             "levels": LEVEL_CHOICES,
             "semesters": SEMESTER_CHOICES,
+            "selected_level": selected_level,
+            "selected_semester": selected_semester,
+            "selected_is_active": selected_is_active,
+        },
+    )
+
+
+@registrar_required
+def course_catalog(request):
+    # View-only, university-wide - Registrar owns student/account records, not
+    # course content, so this is deliberately not another course_add/edit surface.
+    courses = Course.objects.select_related("department", "lecturer").order_by("code")
+    departments = Department.objects.all()
+
+    selected_department = request.GET.get("department", "").strip()
+    selected_level = request.GET.get("level", "").strip()
+    selected_semester = request.GET.get("semester", "").strip()
+    selected_is_active = request.GET.get("is_active", "").strip()
+    if selected_department:
+        courses = courses.filter(department_id=selected_department)
+    if selected_level:
+        courses = courses.filter(level=selected_level)
+    if selected_semester:
+        courses = courses.filter(semester=selected_semester)
+    if selected_is_active:
+        courses = courses.filter(is_active=(selected_is_active == "1"))
+
+    paginator = Paginator(courses, 10)
+    courses = paginator.get_page(request.GET.get("page"))
+
+    params = request.GET.copy()
+    params.pop("page", None)
+    querystring = params.urlencode()
+
+    return render(
+        request,
+        "courses/course_catalog.html",
+        {
+            "courses": courses,
+            "querystring": querystring,
+            "departments": departments,
+            "levels": LEVEL_CHOICES,
+            "semesters": SEMESTER_CHOICES,
+            "selected_department": selected_department,
+            "selected_level": selected_level,
+            "selected_semester": selected_semester,
+            "selected_is_active": selected_is_active,
+        },
+    )
+
+
+@dean_required
+def faculty_courses(request):
+    # View-only, scoped to the Dean's own faculty - same reasoning as course_catalog,
+    # Dean oversees the faculty, HOD still owns each department's course content.
+    faculty = _dean_faculty(request)
+    courses = None
+    departments = Department.objects.none()
+    querystring = ""
+    selected_department = selected_level = selected_semester = selected_is_active = ""
+    if faculty:
+        departments = Department.objects.filter(faculty=faculty)
+        courses = Course.objects.filter(department__faculty=faculty).select_related(
+            "department", "lecturer"
+        ).order_by("code")
+
+        selected_department = request.GET.get("department", "").strip()
+        selected_level = request.GET.get("level", "").strip()
+        selected_semester = request.GET.get("semester", "").strip()
+        selected_is_active = request.GET.get("is_active", "").strip()
+        if selected_department:
+            courses = courses.filter(department_id=selected_department)
+        if selected_level:
+            courses = courses.filter(level=selected_level)
+        if selected_semester:
+            courses = courses.filter(semester=selected_semester)
+        if selected_is_active:
+            courses = courses.filter(is_active=(selected_is_active == "1"))
+
+        paginator = Paginator(courses, 10)
+        courses = paginator.get_page(request.GET.get("page"))
+
+        params = request.GET.copy()
+        params.pop("page", None)
+        querystring = params.urlencode()
+
+    return render(
+        request,
+        "courses/faculty_courses.html",
+        {
+            "faculty": faculty,
+            "courses": courses,
+            "querystring": querystring,
+            "departments": departments,
+            "levels": LEVEL_CHOICES,
+            "semesters": SEMESTER_CHOICES,
+            "selected_department": selected_department,
             "selected_level": selected_level,
             "selected_semester": selected_semester,
             "selected_is_active": selected_is_active,

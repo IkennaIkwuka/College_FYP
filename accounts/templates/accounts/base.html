@@ -34,6 +34,10 @@
                     {% endif %}
                     {% if user.is_registrar %}
                         <a class="btn btn-outline-light btn-sm me-2" href="{% url 'students:manage_students' %}">Manage Students</a>
+                        <a class="btn btn-outline-light btn-sm me-2" href="{% url 'courses:course_catalog' %}">Course Catalog</a>
+                    {% endif %}
+                    {% if user.is_dean %}
+                        <a class="btn btn-outline-light btn-sm me-2" href="{% url 'courses:faculty_courses' %}">Faculty Courses</a>
                     {% endif %}
                     <a class="btn btn-outline-light btn-sm me-2" href="{% if user.is_student %}{% url 'students:my_profile' %}{% else %}{% url 'accounts:profile' %}{% endif %}">My Profile</a>
                     <form method="post" action="{% url 'accounts:logout' %}" class="d-inline">

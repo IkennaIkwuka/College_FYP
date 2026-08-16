@@ -1,10 +1,10 @@
-from accounts.models import HOD_GROUP, LECTURER_GROUP, User
+from accounts.models import DEAN_GROUP, HOD_GROUP, LECTURER_GROUP, REGISTRAR_GROUP, User
 from django.conf import settings
 from django.contrib.auth.models import Group
 from django.test import TestCase, override_settings
 from django.urls import reverse
 
-from students.models import Department
+from students.models import Department, Faculty
 from students.services import create_student_account
 from students.tests import make_admin
 
@@ -24,6 +24,21 @@ def make_lecturer(username):
     lecturer = User.objects.create_user(username=username, email=f"{username}@example.com", password="pass12345")
     lecturer.groups.add(Group.objects.get(name=LECTURER_GROUP))
     return lecturer
+
+
+def make_registrar(username):
+    registrar = User.objects.create_user(username=username, email=f"{username}@example.com", password="pass12345")
+    registrar.groups.add(Group.objects.get(name=REGISTRAR_GROUP))
+    return registrar
+
+
+def make_dean(username, faculty=None):
+    dean = User.objects.create_user(username=username, email=f"{username}@example.com", password="pass12345")
+    dean.groups.add(Group.objects.get(name=DEAN_GROUP))
+    if faculty is not None:
+        faculty.dean = dean
+        faculty.save(update_fields=["dean"])
+    return dean
 
 
 def make_student(matric_number, department, level):
@@ -303,6 +318,88 @@ class ManageCoursesTests(TestCase):
         make_admin()
         self.client.login(username="admin", password="pass12345")
         response = self.client.get(reverse("courses:manage_courses"))
+        self.assertEqual(response.status_code, 403)
+
+
+class CourseCatalogTests(TestCase):
+    def setUp(self):
+        self.dept1 = Department.objects.create(name="Computer Science")
+        self.dept2 = Department.objects.create(name="Physics")
+        self.course1 = Course.objects.create(
+            code="CSC301", title="Algorithms", units=3,
+            department=self.dept1, level=300, semester="first",
+        )
+        self.course2 = Course.objects.create(
+            code="PHY301", title="Mechanics", units=3,
+            department=self.dept2, level=300, semester="first",
+        )
+        make_registrar("reg1")
+        self.client.login(username="reg1", password="pass12345")
+
+    def test_shows_courses_from_multiple_departments(self):
+        response = self.client.get(reverse("courses:course_catalog"))
+        self.assertContains(response, "CSC301")
+        self.assertContains(response, "PHY301")
+
+    def test_filter_by_department(self):
+        response = self.client.get(reverse("courses:course_catalog"), {"department": self.dept2.id})
+        self.assertContains(response, "PHY301")
+        self.assertNotContains(response, "CSC301")
+
+    def test_non_registrar_gets_403(self):
+        make_admin()
+        self.client.logout()
+        self.client.login(username="admin", password="pass12345")
+        response = self.client.get(reverse("courses:course_catalog"))
+        self.assertEqual(response.status_code, 403)
+
+
+class FacultyCoursesTests(TestCase):
+    def setUp(self):
+        self.faculty = Faculty.objects.create(name="Faculty of Science")
+        self.other_faculty = Faculty.objects.create(name="Faculty of Arts")
+        self.dept1 = Department.objects.create(name="Computer Science", faculty=self.faculty)
+        self.dept2 = Department.objects.create(name="Physics", faculty=self.faculty)
+        self.other_dept = Department.objects.create(name="History", faculty=self.other_faculty)
+
+        self.own_course = Course.objects.create(
+            code="CSC301", title="Algorithms", units=3,
+            department=self.dept1, level=300, semester="first",
+        )
+        self.other_faculty_course = Course.objects.create(
+            code="HIS301", title="World History", units=3,
+            department=self.other_dept, level=300, semester="first",
+        )
+
+        make_dean("dean1", faculty=self.faculty)
+        self.client.login(username="dean1", password="pass12345")
+
+    def test_shows_own_faculty_courses_only(self):
+        response = self.client.get(reverse("courses:faculty_courses"))
+        self.assertContains(response, "CSC301")
+        self.assertNotContains(response, "HIS301")
+
+    def test_filter_by_department_within_faculty(self):
+        Course.objects.create(
+            code="PHY301", title="Mechanics", units=3,
+            department=self.dept2, level=300, semester="first",
+        )
+        response = self.client.get(reverse("courses:faculty_courses"), {"department": self.dept1.id})
+        self.assertContains(response, "CSC301")
+        self.assertNotContains(response, "PHY301")
+
+    def test_dean_with_no_faculty_sees_friendly_message(self):
+        make_dean("dean_unassigned")
+        self.client.logout()
+        self.client.login(username="dean_unassigned", password="pass12345")
+        response = self.client.get(reverse("courses:faculty_courses"))
+        self.assertContains(response, "not assigned as Dean")
+
+    def test_non_dean_gets_403(self):
+        make_admin()
+        self.client.logout()
+        self.client.login(username="admin", password="pass12345")
+        response = self.client.get(reverse("courses:faculty_courses"))
         self.assertEqual(response.status_code, 403)
 
 
