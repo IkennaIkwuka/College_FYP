@@ -3,6 +3,8 @@ from django.conf import settings
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 
+from lu_sims.id_format import InvalidAcademicID, format_academic_id
+
 from .models import User
 from .services import assign_staff_identity
 
@@ -25,10 +27,13 @@ class StaffAccountAddForm(forms.ModelForm):
 
     def clean_staff_id(self):
         # Normalize before the model's own unique=True check runs (in _post_clean,
-        # after this), so a case-variant duplicate like "stf001" vs "STF001" is caught
-        # here as a form error instead of slipping through and hitting an IntegrityError
-        # at save time once assign_staff_identity's username derivation forces lowercase.
-        return self.cleaned_data["staff_id"].strip().upper()
+        # after this), so a case/separator-variant duplicate is caught here as a form
+        # error instead of slipping through and hitting an IntegrityError at save time
+        # once assign_staff_identity's username derivation forces lowercase.
+        try:
+            return format_academic_id(self.cleaned_data["staff_id"])
+        except InvalidAcademicID as e:
+            raise forms.ValidationError(str(e))
 
 
 @admin.register(User)

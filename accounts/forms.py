@@ -2,6 +2,7 @@ from django import forms
 from django.contrib.auth.forms import AuthenticationForm, SetPasswordForm
 from django.contrib.auth.models import Group
 from django.core.exceptions import ValidationError
+from lu_sims.id_format import InvalidAcademicID, format_academic_id
 from students.models import ADMISSION_TYPE_CHOICES, LEVEL_CHOICES, Department, StudentProfile
 
 from .models import ADMIN_GROUP, BURSAR_GROUP, DEAN_GROUP, HOD_GROUP, LECTURER_GROUP, REGISTRAR_GROUP, User
@@ -88,7 +89,10 @@ class StudentAccountForm(BootstrapFormMixin, forms.Form):
     admission_type = forms.ChoiceField(choices=ADMISSION_TYPE_CHOICES)
 
     def clean_matric_number(self):
-        matric_number = self.cleaned_data["matric_number"].strip().upper()
+        try:
+            matric_number = format_academic_id(self.cleaned_data["matric_number"])
+        except InvalidAcademicID as e:
+            raise forms.ValidationError(str(e))
         if StudentProfile.objects.filter(matric_number=matric_number).exists():
             raise forms.ValidationError("A student with this matric number already exists.")
         return matric_number
@@ -108,7 +112,10 @@ class StaffAccountForm(BootstrapFormMixin, forms.Form):
     group = forms.ModelChoiceField(queryset=Group.objects.filter(name__in=STAFF_GROUPS), label="Role")
 
     def clean_staff_id(self):
-        staff_id = self.cleaned_data["staff_id"].strip().upper()
+        try:
+            staff_id = format_academic_id(self.cleaned_data["staff_id"])
+        except InvalidAcademicID as e:
+            raise forms.ValidationError(str(e))
         if User.objects.filter(staff_id=staff_id).exists():
             raise forms.ValidationError("A staff member with this ID already exists.")
         return staff_id

@@ -63,10 +63,17 @@ class LoginTests(TestCase):
             self.client.login(username=self.profile.user.username, password=settings.DEFAULT_PASSWORD)
         )
 
-    def test_login_with_matric_number_no_longer_works(self):
-        # The matric-number login fallback was removed - login is username+password only.
+    def test_login_with_matric_number_in_natural_form_works(self):
+        # LenientUsernameBackend strips punctuation and ignores case, so typing the
+        # matric number in its natural shape (slashes, mixed case) still logs in -
+        # it isn't a separate lookup path, just tolerance on the same username field.
+        self.assertTrue(
+            self.client.login(username="2023/csc/030", password=settings.DEFAULT_PASSWORD)
+        )
+
+    def test_login_with_unrelated_wrong_username_fails(self):
         self.assertFalse(
-            self.client.login(username="2023/CSC/030", password=settings.DEFAULT_PASSWORD)
+            self.client.login(username="not-a-real-account", password=settings.DEFAULT_PASSWORD)
         )
 
 

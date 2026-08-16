@@ -1,6 +1,8 @@
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 
+from lu_sims.id_format import format_academic_id
+
 ADMIN_GROUP = "IT Admin"
 LECTURER_GROUP = "Lecturer"
 STUDENT_GROUP = "Student"
@@ -20,6 +22,11 @@ class User(AbstractUser):
     # student's staff_id being empty doesn't collide under the unique constraint -
     # SQL treats multiple NULLs as non-conflicting, unlike multiple empty strings.
     staff_id = models.CharField(max_length=20, unique=True, null=True, blank=True)
+
+    def save(self, *args, **kwargs):
+        if self.staff_id:
+            self.staff_id = format_academic_id(self.staff_id)
+        super().save(*args, **kwargs)
 
     def has_role(self, group_name):
         return self.groups.filter(name=group_name).exists()

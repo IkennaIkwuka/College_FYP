@@ -2,6 +2,7 @@ from datetime import timedelta
 
 from accounts.models import DEAN_GROUP, HOD_GROUP
 from django.conf import settings
+from lu_sims.id_format import format_academic_id
 from django.contrib.auth.hashers import check_password, make_password
 from django.db import models
 from django.utils import timezone
@@ -99,7 +100,7 @@ class StudentProfile(models.Model):
     pin_locked_until = models.DateTimeField(null=True, blank=True)
 
     def save(self, *args, **kwargs):
-        self.matric_number = self.matric_number.strip().upper()
+        self.matric_number = format_academic_id(self.matric_number)
         super().save(*args, **kwargs)
 
     def __str__(self):
