@@ -7,6 +7,12 @@ app_name = "students"
 urlpatterns = [
     path("import/", views.bulk_import, name="bulk_import"),
     path("lookup/", views.lookup, name="lookup"),
+    path(
+        "manage/students/<int:pk>/reset-password/",
+        views.student_force_password_reset,
+        name="student_force_password_reset",
+    ),
+    path("manage/students/<int:pk>/reset-pin/", views.student_reset_pin, name="student_reset_pin"),
     path("manage/faculties/", views.manage_faculties, name="manage_faculties"),
     path("manage/faculties/add/", views.faculty_add, name="faculty_add"),
     path("manage/faculties/<int:pk>/edit/", views.faculty_edit, name="faculty_edit"),

@@ -153,6 +153,12 @@ class AdminOnlyViewsTests(TestCase):
         self.assertEqual(
             self.client.get(reverse("accounts:staff_edit", args=[staff.id])).status_code, 403
         )
+        self.assertEqual(
+            self.client.post(
+                reverse("accounts:staff_force_password_reset", args=[staff.id])
+            ).status_code,
+            403,
+        )
 
     def test_admin_can_add_student(self):
         self.client.login(username="admin", password="pass12345")
@@ -229,6 +235,18 @@ class AdminOnlyViewsTests(TestCase):
         self.assertEqual(staff.first_name, "Updated")
         self.assertTrue(staff.groups.filter(name=LECTURER_GROUP).exists())
         self.assertFalse(staff.groups.filter(name=HOD_GROUP).exists())
+
+    def test_admin_can_force_staff_password_reset(self):
+        staff = make_hod(username="hodtoreset")
+        staff.set_password("someoldpassword")
+        staff.must_change_password = False
+        staff.save()
+        self.client.login(username="admin", password="pass12345")
+        response = self.client.post(reverse("accounts:staff_force_password_reset", args=[staff.id]))
+        self.assertRedirects(response, reverse("accounts:manage_staff"))
+        staff.refresh_from_db()
+        self.assertTrue(staff.check_password(settings.DEFAULT_PASSWORD))
+        self.assertTrue(staff.must_change_password)
 
     def test_editing_staff_does_not_flag_own_unchanged_email(self):
         staff = make_hod(username="hodkeepemail")

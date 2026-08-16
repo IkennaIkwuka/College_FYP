@@ -20,3 +20,14 @@ def assign_staff_identity(user):
     user.set_password(settings.DEFAULT_PASSWORD)
     user.must_change_password = True
     return user
+
+
+def force_password_reset(user):
+    """Resets an existing account back to the same state a freshly-created one
+    starts in: shared default password, forced change on next login. Covers both
+    "forgot it" and "think it's compromised" - either way the old password stops
+    working immediately.
+    """
+    user.set_password(settings.DEFAULT_PASSWORD)
+    user.must_change_password = True
+    user.save(update_fields=["password", "must_change_password"])

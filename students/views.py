@@ -2,6 +2,7 @@ import csv
 import io
 
 from accounts.decorators import admin_required, registrar_required, student_required
+from accounts.services import force_password_reset
 from django.conf import settings
 from django.contrib import messages
 from django.core.mail import send_mail
@@ -9,10 +10,11 @@ from django.core.paginator import Paginator
 from django.db import transaction
 from django.db.models import Q
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 
 from .forms import BulkImportForm, DepartmentForm, FacultyForm, StudentEditForm, StudentProfileForm
 from .models import ADMISSION_TYPE_CHOICES, LEVEL_CHOICES, Department, Faculty, StudentProfile
-from .services import create_student_account
+from .services import create_student_account, reset_student_pin
 
 REQUIRED_COLUMNS = {"matric_number", "first_name", "last_name", "email", "department", "level"}
 OPTIONAL_COLUMNS = {"date_of_birth", "gender", "phone_number", "address"}
@@ -179,6 +181,52 @@ def lookup(request):
         "students/lookup.html",
         {"matric_number": matric_number, "profile": profile, "registrations": registrations},
     )
+
+
+def _back_to_lookup(profile):
+    return redirect(f"{reverse('students:lookup')}?matric_number={profile.matric_number}")
+
+
+@admin_required
+def student_force_password_reset(request, pk):
+    profile = get_object_or_404(StudentProfile, pk=pk)
+
+    if request.method == "POST":
+        force_password_reset(profile.user)
+        messages.success(
+            request,
+            f"Password reset for {profile.matric_number}. They'll need to log in with the "
+            f'default password ("{settings.DEFAULT_PASSWORD}") and set a new one.',
+        )
+    return _back_to_lookup(profile)
+
+
+@admin_required
+def student_reset_pin(request, pk):
+    profile = get_object_or_404(StudentProfile, pk=pk)
+
+    if request.method == "POST":
+        raw_pin = reset_student_pin(profile)
+        try:
+            send_mail(
+                subject="Your LU-SIMS PIN",
+                message=(
+                    f"Matric number: {profile.matric_number}\n"
+                    f"PIN: {raw_pin}\n\n"
+                    f'Log in with your username "{profile.user.username}" and the '
+                    f'default password "{settings.DEFAULT_PASSWORD}", then enter this '
+                    "PIN when prompted to set your own password."
+                ),
+                from_email=None,
+                recipient_list=[profile.user.email],
+            )
+            messages.success(request, f"PIN reset for {profile.matric_number}. New PIN emailed.")
+        except Exception:
+            messages.warning(
+                request,
+                f"PIN reset, but the email to {profile.user.email} failed. Follow up manually.",
+            )
+    return _back_to_lookup(profile)
 
 
 @admin_required

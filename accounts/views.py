@@ -22,7 +22,7 @@ from .decorators import (
 )
 from .forms import STAFF_GROUPS, ChangePasswordForm, LoginForm, StaffAccountForm, StaffEditForm, StudentAccountForm
 from .models import User
-from .services import assign_staff_identity
+from .services import assign_staff_identity, force_password_reset
 
 
 @admin_required
@@ -163,6 +163,21 @@ def staff_edit(request, pk):
     return render(
         request, "accounts/staff_form.html", {"form": form, "title": f"Edit {staff_user.username}"}
     )
+
+
+@admin_required
+def staff_force_password_reset(request, pk):
+    staff_user = get_object_or_404(User, pk=pk, groups__name__in=STAFF_GROUPS)
+
+    if request.method == "POST":
+        force_password_reset(staff_user)
+        messages.success(
+            request,
+            f"Password reset for {staff_user.get_full_name() or staff_user.username}. "
+            f'They\'ll need to log in with the default password ("{settings.DEFAULT_PASSWORD}") '
+            "and set a new one.",
+        )
+    return redirect("accounts:manage_staff")
 
 
 @login_required

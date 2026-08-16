@@ -94,6 +94,46 @@ class LookupTests(TestCase):
         response = self.client.get(reverse("students:lookup"), {"matric_number": "9999/XX/999"})
         self.assertContains(response, "No student found")
 
+    def test_admin_can_force_student_password_reset(self):
+        self.profile.user.set_password("someoldpassword")
+        self.profile.user.must_change_password = False
+        self.profile.user.save()
+        response = self.client.post(
+            reverse("students:student_force_password_reset", args=[self.profile.id])
+        )
+        self.assertRedirects(
+            response, f"{reverse('students:lookup')}?matric_number={self.profile.matric_number}"
+        )
+        self.profile.user.refresh_from_db()
+        self.assertTrue(self.profile.user.check_password(settings.DEFAULT_PASSWORD))
+        self.assertTrue(self.profile.user.must_change_password)
+
+    def test_admin_can_reset_student_pin(self):
+        old_hash = self.profile.pin_hash
+        self.profile.failed_pin_attempts = 5
+        self.profile.save(update_fields=["failed_pin_attempts"])
+        response = self.client.post(reverse("students:student_reset_pin", args=[self.profile.id]))
+        self.assertRedirects(
+            response, f"{reverse('students:lookup')}?matric_number={self.profile.matric_number}"
+        )
+        self.profile.refresh_from_db()
+        self.assertNotEqual(self.profile.pin_hash, old_hash)
+        self.assertEqual(self.profile.failed_pin_attempts, 0)
+        self.assertIsNone(self.profile.pin_locked_until)
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertIn("PIN", mail.outbox[0].subject)
+
+    def test_registrar_forbidden_from_student_resets(self):
+        make_registrar()
+        self.client.logout()
+        self.client.login(username="reg1", password="pass12345")
+        response = self.client.post(
+            reverse("students:student_force_password_reset", args=[self.profile.id])
+        )
+        self.assertEqual(response.status_code, 403)
+        response = self.client.post(reverse("students:student_reset_pin", args=[self.profile.id]))
+        self.assertEqual(response.status_code, 403)
+
 
 class CurrentLevelTests(TestCase):
     def setUp(self):

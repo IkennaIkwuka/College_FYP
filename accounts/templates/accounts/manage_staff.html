@@ -40,6 +40,10 @@
                         <td>{{ staff_user.staff_id|default:"-" }}</td>
                         <td class="text-end">
                             <a href="{% url 'accounts:staff_edit' staff_user.id %}" class="btn btn-outline-secondary btn-sm">Edit</a>
+                            <form method="post" action="{% url 'accounts:staff_force_password_reset' staff_user.id %}" class="d-inline">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-outline-secondary btn-sm">Reset Password</button>
+                            </form>
                         </td>
                     </tr>
                 {% endfor %}

@@ -53,3 +53,18 @@ def create_student_account(*, matric_number, first_name, last_name, email, depar
     profile.save(update_fields=["pin_hash"])
 
     return profile, raw_pin
+
+
+def reset_student_pin(profile):
+    """Issues a fresh PIN and clears any lockout, returning the raw PIN to email.
+
+    Always safe to call regardless of current lockout state - a fresh PIN makes
+    whatever the student had before (forgotten, never received, or still valid)
+    moot either way.
+    """
+    raw_pin = generate_pin()
+    profile.set_pin(raw_pin)
+    profile.failed_pin_attempts = 0
+    profile.pin_locked_until = None
+    profile.save(update_fields=["pin_hash", "failed_pin_attempts", "pin_locked_until"])
+    return raw_pin

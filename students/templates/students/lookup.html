@@ -29,6 +29,15 @@
                     <tr><th>Address</th><td>{{ profile.address|default:"-" }}</td></tr>
                 </table>
 
+                <form method="post" action="{% url 'students:student_force_password_reset' profile.id %}" class="d-inline">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-outline-secondary btn-sm">Reset Password</button>
+                </form>
+                <form method="post" action="{% url 'students:student_reset_pin' profile.id %}" class="d-inline">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-outline-secondary btn-sm">Reset PIN</button>
+                </form>
+
                 <h3 class="h5 mt-4">Course Registrations</h3>
                 {% if registrations %}
                     <table class="table table-striped">
