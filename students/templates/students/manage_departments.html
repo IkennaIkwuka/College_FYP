@@ -13,6 +13,7 @@
                     <th>Name</th>
                     <th>Faculty</th>
                     <th>HOD</th>
+                    <th>Duration</th>
                     <th></th>
                 </tr>
             </thead>
@@ -22,6 +23,7 @@
                         <td>{{ department.name }}</td>
                         <td>{{ department.faculty|default:"Unassigned" }}</td>
                         <td>{{ department.hod|default:"Unassigned" }}</td>
+                        <td>{{ department.get_duration_years_display }}</td>
                         <td class="text-end">
                             <a href="{% url 'students:department_edit' department.id %}" class="btn btn-outline-secondary btn-sm">Edit</a>
                         </td>

@@ -156,8 +156,19 @@ class CurrentLevelTests(TestCase):
         self.assertEqual(self.profile.current_level, 300)
 
     @override_settings(CURRENT_SESSION="2035/2036")
-    def test_current_level_caps_at_500(self):
-        self.assertEqual(self.profile.current_level, 500)
+    def test_current_level_caps_at_default_duration(self):
+        # self.department has no explicit duration_years - defaults to 4, so the
+        # cap is 400, not a fixed 500.
+        self.assertEqual(self.profile.current_level, 400)
+
+    def test_current_level_caps_at_departments_own_duration(self):
+        law_department = Department.objects.create(name="Law", duration_years=5)
+        law_student = create_student_account(
+            matric_number="2023/LAW/001", first_name="Chika", last_name="Eze",
+            email="chika@example.com", department=law_department, entry_level=100,
+        )
+        with override_settings(CURRENT_SESSION="2035/2036"):
+            self.assertEqual(law_student.current_level, 500)
 
 
 class DepartmentManagementTests(TestCase):
@@ -171,7 +182,9 @@ class DepartmentManagementTests(TestCase):
         self.assertContains(response, "Computer Science")
 
     def test_admin_can_add_department(self):
-        response = self.client.post(reverse("students:department_add"), {"name": "Physics", "hod": ""})
+        response = self.client.post(
+            reverse("students:department_add"), {"name": "Physics", "hod": "", "duration_years": 4}
+        )
         self.assertRedirects(response, reverse("students:manage_departments"))
         self.assertTrue(Department.objects.filter(name="Physics").exists())
 
@@ -179,7 +192,7 @@ class DepartmentManagementTests(TestCase):
         hod = make_hod()
         response = self.client.post(
             reverse("students:department_edit", args=[self.department.id]),
-            {"name": "Computer Science", "hod": hod.id},
+            {"name": "Computer Science", "hod": hod.id, "duration_years": 4},
         )
         self.assertRedirects(response, reverse("students:manage_departments"))
         self.department.refresh_from_db()

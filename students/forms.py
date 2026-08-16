@@ -18,7 +18,7 @@ class FacultyForm(BootstrapFormMixin, forms.ModelForm):
 class DepartmentForm(BootstrapFormMixin, forms.ModelForm):
     class Meta:
         model = Department
-        fields = ["name", "faculty", "hod"]
+        fields = ["name", "faculty", "hod", "duration_years"]
 
 
 class StudentProfileForm(BootstrapFormMixin, forms.ModelForm):

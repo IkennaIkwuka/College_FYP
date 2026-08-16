@@ -27,6 +27,17 @@ ADMISSION_TYPE_CHOICES = [
     ("TRANSFER_INTER", "Transfer (Inter-Faculty)"),
 ]
 
+# NUC-standard programme lengths: 4 years for most social sciences/arts/management/
+# pure sciences, up to 6 for professional programmes (medicine, engineering) - not
+# every Nigerian university programme is the same length, so this is per-department,
+# not a fixed constant. Drives the ceiling on course level and a student's current_level.
+DURATION_CHOICES = [
+    (3, "3 Years"),
+    (4, "4 Years"),
+    (5, "5 Years"),
+    (6, "6 Years"),
+]
+
 
 class Faculty(models.Model):
     name = models.CharField(max_length=100, unique=True)
@@ -49,6 +60,7 @@ class Faculty(models.Model):
 
 class Department(models.Model):
     name = models.CharField(max_length=100, unique=True)
+    duration_years = models.PositiveSmallIntegerField(choices=DURATION_CHOICES, default=4)
     faculty = models.ForeignKey(
         Faculty,
         on_delete=models.SET_NULL,
@@ -111,7 +123,11 @@ class StudentProfile(models.Model):
         entry_year = int(self.entry_session.split("/")[0])
         current_year = int(settings.CURRENT_SESSION.split("/")[0])
         years_elapsed = current_year - entry_year
-        return min(self.entry_level + years_elapsed * 100, LEVEL_CHOICES[-1][0])
+        # Caps at the student's own department's programme length, not a fixed 500 -
+        # a 4-year Computer Science student should never show as "500 Level" just
+        # because enough sessions have passed.
+        max_level = self.department.duration_years * 100
+        return min(self.entry_level + years_elapsed * 100, max_level)
 
     @property
     def current_level_display(self):

@@ -280,6 +280,30 @@ class ManageCoursesTests(TestCase):
         self.assertFalse(Course.objects.filter(code="CSC302").exists())
         self.assertContains(response, "should end in an odd digit")
 
+    def test_add_course_rejects_level_beyond_department_duration(self):
+        # self.department has no explicit duration_years - defaults to 4, so a
+        # 500 Level course should be rejected.
+        response = self.client.post(
+            reverse("courses:course_add"),
+            {"code": "CSC501", "title": "Too Advanced", "units": 3, "level": 500, "semester": "first"},
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(Course.objects.filter(code="CSC501").exists())
+        self.assertContains(response, "4-year programme")
+
+    def test_add_course_at_level_within_a_longer_departments_duration(self):
+        law_department = Department.objects.create(name="Law", duration_years=5)
+        make_hod("hod_law", department=law_department)
+        self.client.logout()
+        self.client.login(username="hod_law", password="pass12345")
+
+        response = self.client.post(
+            reverse("courses:course_add"),
+            {"code": "LAW501", "title": "Advanced Law", "units": 3, "level": 500, "semester": "first"},
+        )
+        self.assertRedirects(response, reverse("courses:manage_courses"))
+        self.assertTrue(Course.objects.filter(code="LAW501").exists())
+
     def test_edit_own_course_succeeds(self):
         response = self.client.post(
             reverse("courses:course_edit", args=[self.own_course.id]),

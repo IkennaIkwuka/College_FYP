@@ -250,6 +250,22 @@ def faculty_courses(request):
     )
 
 
+def _course_level_exceeds_duration(form, department):
+    # Not something CourseForm can check itself - department isn't one of its
+    # fields (it's assigned by the view, see course_add below), so the ceiling
+    # has to be applied here, after is_valid() but before the course is saved.
+    max_level = department.duration_years * 100
+    level = form.cleaned_data.get("level")
+    if level and int(level) > max_level:
+        form.add_error(
+            "level",
+            f"{department} is a {department.duration_years}-year programme - course level "
+            f"cannot exceed {max_level} Level.",
+        )
+        return True
+    return False
+
+
 @hod_required
 def course_add(request):
     department = _hod_department(request)
@@ -259,7 +275,7 @@ def course_add(request):
 
     if request.method == "POST":
         form = CourseForm(request.POST)
-        if form.is_valid():
+        if form.is_valid() and not _course_level_exceeds_duration(form, department):
             course = form.save(commit=False)
             course.department = department
             course.save()
@@ -278,7 +294,7 @@ def course_edit(request, pk):
 
     if request.method == "POST":
         form = CourseForm(request.POST, instance=course)
-        if form.is_valid():
+        if form.is_valid() and not _course_level_exceeds_duration(form, department):
             form.save()
             messages.success(request, f"Updated {course.code}.")
             return redirect("courses:manage_courses")

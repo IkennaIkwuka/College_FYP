@@ -36,6 +36,16 @@ class Course(models.Model):
 
     def save(self, *args, **kwargs):
         self.code = format_course_code(self.code, self.level, self.semester)
+        # Backstop for anything that creates a Course outside the portal's own
+        # course_add/course_edit views (which already check this before save() is
+        # ever reached) - department is always set by the time save() runs, unlike
+        # at ModelForm validation time, so this is safe to check here too.
+        max_level = self.department.duration_years * 100
+        if self.level > max_level:
+            raise ValidationError(
+                f"{self.department} is a {self.department.duration_years}-year programme - "
+                f"course level cannot exceed {max_level} Level."
+            )
         super().save(*args, **kwargs)
 
     def __str__(self):

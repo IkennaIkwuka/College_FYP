@@ -12,7 +12,8 @@ class FacultyAdmin(admin.ModelAdmin):
 
 @admin.register(Department)
 class DepartmentAdmin(admin.ModelAdmin):
-    list_display = ("name", "faculty", "hod")
+    list_display = ("name", "faculty", "hod", "duration_years")
+    list_filter = ("duration_years",)
     search_fields = ("name",)
     autocomplete_fields = ("faculty", "hod")
 
