@@ -3,6 +3,7 @@ from django.core.exceptions import ValidationError
 from django.db import models
 
 from accounts.models import LECTURER_GROUP
+from lu_sims.id_format import format_course_code
 from students.models import LEVEL_CHOICES, Department, StudentProfile
 
 SEMESTER_CHOICES = [
@@ -34,7 +35,7 @@ class Course(models.Model):
         ordering = ["code"]
 
     def save(self, *args, **kwargs):
-        self.code = self.code.strip().upper()
+        self.code = format_course_code(self.code, self.level)
         super().save(*args, **kwargs)
 
     def __str__(self):

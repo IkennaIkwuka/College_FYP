@@ -28,6 +28,12 @@ class User(AbstractUser):
             self.staff_id = format_academic_id(self.staff_id)
         super().save(*args, **kwargs)
 
+    def __str__(self):
+        # AbstractUser's default falls back to username, which is a stripped-down
+        # ID (e.g. "hodcsc001") - not something anyone should see displayed as a
+        # person's identity in a template, list, or dropdown.
+        return self.get_full_name() or self.username
+
     def has_role(self, group_name):
         return self.groups.filter(name=group_name).exists()
 

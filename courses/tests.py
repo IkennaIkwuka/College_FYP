@@ -208,7 +208,7 @@ class ManageCoursesTests(TestCase):
     def test_pagination_limits_to_ten_per_page(self):
         for i in range(20):
             Course.objects.create(
-                code=f"CSC5{i:02d}", title=f"Extra {i}", units=3,
+                code=f"CSC1{i:02d}", title=f"Extra {i}", units=3,
                 department=self.department, level=100, semester="first",
             )
         response = self.client.get(reverse("courses:manage_courses"))

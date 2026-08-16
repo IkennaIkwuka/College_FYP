@@ -1,6 +1,7 @@
 from django import forms
 
 from accounts.forms import BootstrapFormMixin
+from lu_sims.id_format import InvalidAcademicID, format_course_code
 
 from .models import Course
 
@@ -11,6 +12,20 @@ class CourseForm(BootstrapFormMixin, forms.ModelForm):
     class Meta:
         model = Course
         fields = ["code", "title", "units", "level", "semester", "lecturer", "is_active"]
+
+    def clean(self):
+        # Needs both code and level together (to cross-check the code's leading
+        # digit against the level), so this has to be the whole-form clean() -
+        # clean_code() alone can't rely on "level" already being in cleaned_data.
+        cleaned_data = super().clean()
+        code = cleaned_data.get("code")
+        level = cleaned_data.get("level")
+        if code and level:
+            try:
+                cleaned_data["code"] = format_course_code(code, int(level))
+            except InvalidAcademicID as e:
+                self.add_error("code", str(e))
+        return cleaned_data
 
 
 class CourseSelectionForm(forms.Form):
