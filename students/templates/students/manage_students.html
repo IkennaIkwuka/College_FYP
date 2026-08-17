@@ -5,8 +5,9 @@
 {% block content %}
     <h1>Manage Students</h1>
     <form method="get" class="mb-4 d-flex flex-wrap gap-2 align-items-end">
-        <div class="input-group" style="max-width: 400px;">
+        <div class="typeahead-wrapper position-relative" style="max-width: 400px;">
             <input type="text" name="q" value="{{ query }}" placeholder="Matric number or name" class="form-control">
+            <div class="typeahead-results list-group position-absolute w-100 d-none" style="z-index: 1000; max-height: 300px; overflow-y: auto;"></div>
         </div>
         <select name="department" class="form-select" style="max-width: 220px;" onchange="this.form.submit()">
             <option value="">All departments</option>
@@ -84,13 +85,8 @@
     {% endif %}
 
     <script>
-        (function () {
-            const input = document.querySelector('input[name="q"]');
-            let timeout;
-            input.addEventListener("input", function () {
-                clearTimeout(timeout);
-                timeout = setTimeout(() => input.form.submit(), 400);
-            });
-        })();
+        document.addEventListener('DOMContentLoaded', function () {
+            initTypeahead(document.querySelector('input[name="q"]'), "{% url 'students:student_search_suggestions' %}");
+        });
     </script>
 {% endblock %}

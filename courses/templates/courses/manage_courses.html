@@ -12,6 +12,10 @@
         <a href="{% url 'courses:course_add' %}" class="btn btn-primary mb-3">Add Course</a>
 
         <form method="get" class="mb-4 d-flex flex-wrap gap-2 align-items-end">
+            <div class="typeahead-wrapper position-relative" style="max-width: 400px;">
+                <input type="text" name="q" value="{{ query }}" placeholder="Course code or title" class="form-control">
+                <div class="typeahead-results list-group position-absolute w-100 d-none" style="z-index: 1000; max-height: 300px; overflow-y: auto;"></div>
+            </div>
             <select name="level" class="form-select" style="max-width: 160px;" onchange="this.form.submit()">
                 <option value="">All levels</option>
                 {% for level, label in levels %}
@@ -98,11 +102,18 @@
                 </nav>
             {% endif %}
         {% else %}
-            {% if selected_level or selected_semester or selected_is_active %}
+            {% if query or selected_level or selected_semester or selected_is_active %}
                 <p class="text-muted">No courses match the selected filters.</p>
             {% else %}
                 <p class="text-muted">No courses in your department yet.</p>
             {% endif %}
         {% endif %}
     {% endif %}
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const input = document.querySelector('input[name="q"]');
+            if (input) initTypeahead(input, "{% url 'courses:course_search_suggestions' %}");
+        });
+    </script>
 {% endblock %}

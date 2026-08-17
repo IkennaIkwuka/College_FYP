@@ -7,6 +7,10 @@
     <a href="{% url 'accounts:staff_add' %}" class="btn btn-primary mb-3">Add Staff</a>
 
     <form method="get" class="mb-4 d-flex flex-wrap gap-2 align-items-end">
+        <div class="typeahead-wrapper position-relative" style="max-width: 400px;">
+            <input type="text" name="q" value="{{ query }}" placeholder="Name, username, email, or staff ID" class="form-control">
+            <div class="typeahead-results list-group position-absolute w-100 d-none" style="z-index: 1000; max-height: 300px; overflow-y: auto;"></div>
+        </div>
         <select name="group" class="form-select" style="max-width: 200px;" onchange="this.form.submit()">
             <option value="">All roles</option>
             {% for group in groups %}
@@ -72,10 +76,16 @@
             </nav>
         {% endif %}
     {% else %}
-        {% if selected_group or selected_is_active %}
+        {% if query or selected_group or selected_is_active %}
             <p class="text-muted">No staff match the selected filters.</p>
         {% else %}
             <p class="text-muted">No staff accounts yet.</p>
         {% endif %}
     {% endif %}
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            initTypeahead(document.querySelector('input[name="q"]'), "{% url 'accounts:staff_search_suggestions' %}");
+        });
+    </script>
 {% endblock %}

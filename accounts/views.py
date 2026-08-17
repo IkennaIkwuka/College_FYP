@@ -5,8 +5,10 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import Group
 from django.core.exceptions import PermissionDenied
 from django.core.paginator import Paginator
+from django.db.models import Q
+from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
-from django.urls import reverse_lazy
+from django.urls import reverse, reverse_lazy
 
 from students.services import create_student_account, reset_student_pin, send_pin_email
 
@@ -74,16 +76,30 @@ def profile(request):
     return render(request, "accounts/profile.html")
 
 
-@admin_required
-def manage_staff(request):
+def _filtered_staff_users(request):
+    query = request.GET.get("q", "").strip()
     group_id = request.GET.get("group", "").strip()
     is_active = request.GET.get("is_active", "").strip()
 
     staff_users = User.objects.filter(groups__name__in=STAFF_GROUPS).distinct().order_by("username")
+    if query:
+        staff_users = staff_users.filter(
+            Q(first_name__icontains=query)
+            | Q(last_name__icontains=query)
+            | Q(username__icontains=query)
+            | Q(email__icontains=query)
+            | Q(staff_id__icontains=query)
+        )
     if group_id:
         staff_users = staff_users.filter(groups__id=group_id)
     if is_active:
         staff_users = staff_users.filter(is_active=(is_active == "1"))
+    return staff_users, query, group_id, is_active
+
+
+@admin_required
+def manage_staff(request):
+    staff_users, query, group_id, is_active = _filtered_staff_users(request)
 
     paginator = Paginator(staff_users, 10)
     staff_users = paginator.get_page(request.GET.get("page"))
@@ -96,6 +112,7 @@ def manage_staff(request):
         request,
         "accounts/manage_staff.html",
         {
+            "query": query,
             "staff_users": staff_users,
             "querystring": querystring,
             "groups": Group.objects.filter(name__in=STAFF_GROUPS),
@@ -103,6 +120,22 @@ def manage_staff(request):
             "selected_is_active": is_active,
         },
     )
+
+
+@admin_required
+def staff_search_suggestions(request):
+    query = request.GET.get("q", "").strip()
+    results = []
+    if query:
+        staff_users, *_ = _filtered_staff_users(request)
+        for staff_user in staff_users[:8]:
+            results.append({
+                "label": staff_user.get_full_name() or staff_user.username,
+                "sublabel": staff_user.email,
+                "value": staff_user.username,
+                "url": reverse("accounts:staff_edit", args=[staff_user.id]),
+            })
+    return JsonResponse({"results": results})
 
 
 @admin_required

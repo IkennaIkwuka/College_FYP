@@ -1,7 +1,10 @@
 from django.conf import settings
 from django.contrib import messages
 from django.core.paginator import Paginator
+from django.db.models import Q
+from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from students.models import Department, Faculty, LEVEL_CHOICES
 
 from accounts.decorators import dean_required, hod_required, lecturer_required, registrar_required, student_required
@@ -112,23 +115,33 @@ def _dean_faculty(request):
     return Faculty.objects.filter(dean=request.user).first()
 
 
+def _filtered_hod_courses(request, department):
+    query = request.GET.get("q", "").strip()
+    courses = Course.objects.filter(department=department).order_by("code")
+    if query:
+        courses = courses.filter(Q(code__icontains=query) | Q(title__icontains=query))
+    selected_level = request.GET.get("level", "").strip()
+    selected_semester = request.GET.get("semester", "").strip()
+    selected_is_active = request.GET.get("is_active", "").strip()
+    if selected_level:
+        courses = courses.filter(level=selected_level)
+    if selected_semester:
+        courses = courses.filter(semester=selected_semester)
+    if selected_is_active:
+        courses = courses.filter(is_active=(selected_is_active == "1"))
+    return courses, query, selected_level, selected_semester, selected_is_active
+
+
 @hod_required
 def manage_courses(request):
     department = _hod_department(request)
     courses = None
     querystring = ""
-    selected_level = selected_semester = selected_is_active = ""
+    query = selected_level = selected_semester = selected_is_active = ""
     if department:
-        courses = Course.objects.filter(department=department).order_by("code")
-        selected_level = request.GET.get("level", "").strip()
-        selected_semester = request.GET.get("semester", "").strip()
-        selected_is_active = request.GET.get("is_active", "").strip()
-        if selected_level:
-            courses = courses.filter(level=selected_level)
-        if selected_semester:
-            courses = courses.filter(semester=selected_semester)
-        if selected_is_active:
-            courses = courses.filter(is_active=(selected_is_active == "1"))
+        courses, query, selected_level, selected_semester, selected_is_active = _filtered_hod_courses(
+            request, department
+        )
 
         paginator = Paginator(courses, 10)
         courses = paginator.get_page(request.GET.get("page"))
@@ -142,6 +155,7 @@ def manage_courses(request):
         "courses/manage_courses.html",
         {
             "department": department,
+            "query": query,
             "courses": courses,
             "querystring": querystring,
             "levels": LEVEL_CHOICES,
@@ -153,12 +167,28 @@ def manage_courses(request):
     )
 
 
-@registrar_required
-def course_catalog(request):
-    # View-only, university-wide - Registrar owns student/account records, not
-    # course content, so this is deliberately not another course_add/edit surface.
+@hod_required
+def course_search_suggestions(request):
+    query = request.GET.get("q", "").strip()
+    results = []
+    department = _hod_department(request)
+    if query and department:
+        courses, *_ = _filtered_hod_courses(request, department)
+        for course in courses[:8]:
+            results.append({
+                "label": f"{course.code} — {course.title}",
+                "sublabel": department.name,
+                "value": course.code,
+                "url": reverse("courses:course_edit", args=[course.id]),
+            })
+    return JsonResponse({"results": results})
+
+
+def _filtered_catalog_courses(request):
+    query = request.GET.get("q", "").strip()
     courses = Course.objects.select_related("department", "lecturer").order_by("code")
-    departments = Department.objects.all()
+    if query:
+        courses = courses.filter(Q(code__icontains=query) | Q(title__icontains=query))
 
     selected_department = request.GET.get("department", "").strip()
     selected_level = request.GET.get("level", "").strip()
@@ -172,6 +202,17 @@ def course_catalog(request):
         courses = courses.filter(semester=selected_semester)
     if selected_is_active:
         courses = courses.filter(is_active=(selected_is_active == "1"))
+    return courses, query, selected_department, selected_level, selected_semester, selected_is_active
+
+
+@registrar_required
+def course_catalog(request):
+    # View-only, university-wide - Registrar owns student/account records, not
+    # course content, so this is deliberately not another course_add/edit surface.
+    departments = Department.objects.all()
+    courses, query, selected_department, selected_level, selected_semester, selected_is_active = (
+        _filtered_catalog_courses(request)
+    )
 
     paginator = Paginator(courses, 10)
     courses = paginator.get_page(request.GET.get("page"))
@@ -184,6 +225,87 @@ def course_catalog(request):
         request,
         "courses/course_catalog.html",
         {
+            "query": query,
+            "courses": courses,
+            "querystring": querystring,
+            "departments": departments,
+            "levels": LEVEL_CHOICES,
+            "semesters": SEMESTER_CHOICES,
+            "selected_department": selected_department,
+            "selected_level": selected_level,
+            "selected_semester": selected_semester,
+            "selected_is_active": selected_is_active,
+        },
+    )
+
+
+@registrar_required
+def catalog_search_suggestions(request):
+    query = request.GET.get("q", "").strip()
+    results = []
+    if query:
+        courses, *_ = _filtered_catalog_courses(request)
+        for course in courses[:8]:
+            results.append({
+                "label": f"{course.code} — {course.title}",
+                "sublabel": course.department.name if course.department else "",
+                "value": course.code,
+                "url": None,
+            })
+    return JsonResponse({"results": results})
+
+
+def _filtered_faculty_courses(request, faculty):
+    query = request.GET.get("q", "").strip()
+    courses = Course.objects.filter(department__faculty=faculty).select_related(
+        "department", "lecturer"
+    ).order_by("code")
+    if query:
+        courses = courses.filter(Q(code__icontains=query) | Q(title__icontains=query))
+
+    selected_department = request.GET.get("department", "").strip()
+    selected_level = request.GET.get("level", "").strip()
+    selected_semester = request.GET.get("semester", "").strip()
+    selected_is_active = request.GET.get("is_active", "").strip()
+    if selected_department:
+        courses = courses.filter(department_id=selected_department)
+    if selected_level:
+        courses = courses.filter(level=selected_level)
+    if selected_semester:
+        courses = courses.filter(semester=selected_semester)
+    if selected_is_active:
+        courses = courses.filter(is_active=(selected_is_active == "1"))
+    return courses, query, selected_department, selected_level, selected_semester, selected_is_active
+
+
+@dean_required
+def faculty_courses(request):
+    # View-only, scoped to the Dean's own faculty - same reasoning as course_catalog,
+    # Dean oversees the faculty, HOD still owns each department's course content.
+    faculty = _dean_faculty(request)
+    courses = None
+    departments = Department.objects.none()
+    querystring = ""
+    query = selected_department = selected_level = selected_semester = selected_is_active = ""
+    if faculty:
+        departments = Department.objects.filter(faculty=faculty)
+        courses, query, selected_department, selected_level, selected_semester, selected_is_active = (
+            _filtered_faculty_courses(request, faculty)
+        )
+
+        paginator = Paginator(courses, 10)
+        courses = paginator.get_page(request.GET.get("page"))
+
+        params = request.GET.copy()
+        params.pop("page", None)
+        querystring = params.urlencode()
+
+    return render(
+        request,
+        "courses/faculty_courses.html",
+        {
+            "faculty": faculty,
+            "query": query,
             "courses": courses,
             "querystring": querystring,
             "departments": departments,
@@ -198,56 +320,20 @@ def course_catalog(request):
 
 
 @dean_required
-def faculty_courses(request):
-    # View-only, scoped to the Dean's own faculty - same reasoning as course_catalog,
-    # Dean oversees the faculty, HOD still owns each department's course content.
+def faculty_course_search_suggestions(request):
+    query = request.GET.get("q", "").strip()
+    results = []
     faculty = _dean_faculty(request)
-    courses = None
-    departments = Department.objects.none()
-    querystring = ""
-    selected_department = selected_level = selected_semester = selected_is_active = ""
-    if faculty:
-        departments = Department.objects.filter(faculty=faculty)
-        courses = Course.objects.filter(department__faculty=faculty).select_related(
-            "department", "lecturer"
-        ).order_by("code")
-
-        selected_department = request.GET.get("department", "").strip()
-        selected_level = request.GET.get("level", "").strip()
-        selected_semester = request.GET.get("semester", "").strip()
-        selected_is_active = request.GET.get("is_active", "").strip()
-        if selected_department:
-            courses = courses.filter(department_id=selected_department)
-        if selected_level:
-            courses = courses.filter(level=selected_level)
-        if selected_semester:
-            courses = courses.filter(semester=selected_semester)
-        if selected_is_active:
-            courses = courses.filter(is_active=(selected_is_active == "1"))
-
-        paginator = Paginator(courses, 10)
-        courses = paginator.get_page(request.GET.get("page"))
-
-        params = request.GET.copy()
-        params.pop("page", None)
-        querystring = params.urlencode()
-
-    return render(
-        request,
-        "courses/faculty_courses.html",
-        {
-            "faculty": faculty,
-            "courses": courses,
-            "querystring": querystring,
-            "departments": departments,
-            "levels": LEVEL_CHOICES,
-            "semesters": SEMESTER_CHOICES,
-            "selected_department": selected_department,
-            "selected_level": selected_level,
-            "selected_semester": selected_semester,
-            "selected_is_active": selected_is_active,
-        },
-    )
+    if query and faculty:
+        courses, *_ = _filtered_faculty_courses(request, faculty)
+        for course in courses[:8]:
+            results.append({
+                "label": f"{course.code} — {course.title}",
+                "sublabel": course.department.name,
+                "value": course.code,
+                "url": None,
+            })
+    return JsonResponse({"results": results})
 
 
 def _course_level_exceeds_duration(form, department):
@@ -304,11 +390,16 @@ def course_edit(request, pk):
     return render(request, "courses/course_form.html", {"form": form, "title": f"Edit {course.code}"})
 
 
-@hod_required
-def course_registrations(request, pk):
-    department = _hod_department(request)
-    course = get_object_or_404(Course, pk=pk, department=department)
+def _filtered_registrations(request, course):
+    query = request.GET.get("q", "").strip()
     registrations = course.registrations.select_related("student__user")
+    if query:
+        registrations = registrations.filter(
+            Q(student__matric_number__icontains=query)
+            | Q(student__user__first_name__icontains=query)
+            | Q(student__user__last_name__icontains=query)
+            | Q(student__user__username__icontains=query)
+        )
 
     selected_session = request.GET.get("session", "").strip()
     selected_semester = request.GET.get("semester", "").strip()
@@ -317,6 +408,14 @@ def course_registrations(request, pk):
     if selected_semester:
         registrations = registrations.filter(semester=selected_semester)
     registrations = registrations.order_by("-session", "semester")
+    return registrations, query, selected_session, selected_semester
+
+
+@hod_required
+def course_registrations(request, pk):
+    department = _hod_department(request)
+    course = get_object_or_404(Course, pk=pk, department=department)
+    registrations, query, selected_session, selected_semester = _filtered_registrations(request, course)
 
     sessions = course.registrations.values_list("session", flat=True).distinct().order_by("-session")
 
@@ -332,6 +431,7 @@ def course_registrations(request, pk):
         "courses/course_registrations.html",
         {
             "course": course,
+            "query": query,
             "registrations": registrations,
             "querystring": querystring,
             "sessions": sessions,
@@ -340,6 +440,25 @@ def course_registrations(request, pk):
             "selected_semester": selected_semester,
         },
     )
+
+
+@hod_required
+def registration_search_suggestions(request, pk):
+    department = _hod_department(request)
+    course = get_object_or_404(Course, pk=pk, department=department)
+    query = request.GET.get("q", "").strip()
+    results = []
+    if query:
+        registrations, *_ = _filtered_registrations(request, course)
+        for registration in registrations[:8]:
+            student = registration.student
+            results.append({
+                "label": student.user.get_full_name() or student.user.username,
+                "sublabel": student.matric_number,
+                "value": student.matric_number,
+                "url": None,
+            })
+    return JsonResponse({"results": results})
 
 
 @hod_required

@@ -8,6 +8,7 @@ from django.contrib import messages
 from django.core.paginator import Paginator
 from django.db import transaction
 from django.db.models import Q
+from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 
@@ -261,8 +262,7 @@ def department_edit(request, pk):
     )
 
 
-@registrar_required
-def manage_students(request):
+def _filtered_student_profiles(request):
     query = request.GET.get("q", "").strip()
     department_id = request.GET.get("department", "").strip()
     entry_level = request.GET.get("entry_level", "").strip()
@@ -281,6 +281,12 @@ def manage_students(request):
         profiles = profiles.filter(entry_level=entry_level)
     if admission_type:
         profiles = profiles.filter(admission_type=admission_type)
+    return profiles, query, department_id, entry_level, admission_type
+
+
+@registrar_required
+def manage_students(request):
+    profiles, query, department_id, entry_level, admission_type = _filtered_student_profiles(request)
 
     paginator = Paginator(profiles, 10)
     profiles = paginator.get_page(request.GET.get("page"))
@@ -304,6 +310,22 @@ def manage_students(request):
             "selected_admission_type": admission_type,
         },
     )
+
+
+@registrar_required
+def student_search_suggestions(request):
+    query = request.GET.get("q", "").strip()
+    results = []
+    if query:
+        profiles, *_ = _filtered_student_profiles(request)
+        for profile in profiles[:8]:
+            results.append({
+                "label": f"{profile.matric_number} — {profile.user.get_full_name() or profile.user.username}",
+                "sublabel": profile.department.name if profile.department else "",
+                "value": profile.matric_number,
+                "url": reverse("students:student_edit", args=[profile.id]),
+            })
+    return JsonResponse({"results": results})
 
 
 @registrar_required

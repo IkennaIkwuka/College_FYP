@@ -7,6 +7,10 @@
 
     {% if sessions %}
         <form method="get" class="mb-4 d-flex flex-wrap gap-2 align-items-end">
+            <div class="typeahead-wrapper position-relative" style="max-width: 400px;">
+                <input type="text" name="q" value="{{ query }}" placeholder="Student name or matric number" class="form-control">
+                <div class="typeahead-results list-group position-absolute w-100 d-none" style="z-index: 1000; max-height: 300px; overflow-y: auto;"></div>
+            </div>
             <select name="session" class="form-select" style="max-width: 180px;" onchange="this.form.submit()">
                 <option value="">All sessions</option>
                 {% for session in sessions %}
@@ -68,10 +72,17 @@
             </nav>
         {% endif %}
     {% else %}
-        {% if selected_session or selected_semester %}
+        {% if query or selected_session or selected_semester %}
             <p class="text-muted">No registrations match the selected filters.</p>
         {% else %}
             <p class="text-muted">No registrations for this course yet.</p>
         {% endif %}
     {% endif %}
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const input = document.querySelector('input[name="q"]');
+            if (input) initTypeahead(input, "{% url 'courses:registration_search_suggestions' course.id %}");
+        });
+    </script>
 {% endblock %}
