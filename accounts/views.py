@@ -129,9 +129,10 @@ def staff_search_suggestions(request):
     if query:
         staff_users, *_ = _filtered_staff_users(request)
         for staff_user in staff_users[:8]:
+            role = staff_user.groups.first()
             results.append({
                 "label": staff_user.get_full_name() or staff_user.username,
-                "sublabel": staff_user.email,
+                "sublabel": role.name if role else "",
                 "value": staff_user.username,
                 "url": reverse("accounts:staff_edit", args=[staff_user.id]),
             })
