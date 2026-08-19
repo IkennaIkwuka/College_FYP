@@ -8,6 +8,10 @@ from .models import ADMIN_GROUP, BURSAR_GROUP, DEAN_GROUP, HOD_GROUP, LECTURER_G
 
 STAFF_GROUPS = [ADMIN_GROUP, HOD_GROUP, LECTURER_GROUP, REGISTRAR_GROUP, BURSAR_GROUP, DEAN_GROUP]
 
+# A real university has exactly one Registrar and one Bursar - these two groups are
+# capped at one active member each, unlike every other staff group.
+CAPPED_GROUPS = {REGISTRAR_GROUP, BURSAR_GROUP}
+
 
 class BootstrapFormMixin:
     """Adds Bootstrap's form-control/form-select/form-check-input classes to every field's widget."""
@@ -137,6 +141,14 @@ class StaffAccountForm(BootstrapFormMixin, forms.Form):
             raise forms.ValidationError("A user with this email already exists.")
         return email
 
+    def clean_group(self):
+        group = self.cleaned_data["group"]
+        if group.name in CAPPED_GROUPS and User.objects.filter(groups=group, is_active=True).exists():
+            raise forms.ValidationError(
+                f"There is already an active {group.name}. Deactivate them first."
+            )
+        return group
+
 
 class StaffEditForm(BootstrapFormMixin, forms.ModelForm):
     # Separate from StaffAccountForm (create-only) rather than reused - a plain
@@ -154,3 +166,43 @@ class StaffEditForm(BootstrapFormMixin, forms.ModelForm):
             current_group = self.instance.groups.filter(name__in=STAFF_GROUPS).first()
             if current_group:
                 self.fields["group"].initial = current_group
+
+    def clean(self):
+        cleaned_data = super().clean()
+        group = cleaned_data.get("group")
+        is_active = cleaned_data.get("is_active", False)
+        if group is None:
+            return cleaned_data
+
+        def other_active_members(group_name):
+            return User.objects.filter(groups__name=group_name, is_active=True).exclude(pk=self.instance.pk)
+
+        current_group = self.instance.groups.filter(name__in=STAFF_GROUPS).first()
+        current_group_name = current_group.name if current_group else None
+
+        # If this account is already one of several active members of a capped group -
+        # a pre-existing violation, not something this edit is creating - block every
+        # change to it except the one that resolves the violation (deactivating it
+        # without also switching its role), rather than silently letting other fields
+        # through while the violation persists.
+        is_over_cap = (
+            self.instance.is_active
+            and current_group_name in CAPPED_GROUPS
+            and other_active_members(current_group_name).exists()
+        )
+        if is_over_cap:
+            is_resolving_edit = not is_active and group.name == current_group_name
+            if not is_resolving_edit:
+                raise forms.ValidationError(
+                    f"This account is one of multiple active {current_group_name} accounts, which a "
+                    "university should only have one of. Deactivate it to resolve this before making "
+                    "any other change."
+                )
+            return cleaned_data
+
+        if group.name in CAPPED_GROUPS and is_active and other_active_members(group.name).exists():
+            raise forms.ValidationError(
+                f"There is already an active {group.name}. Deactivate them first."
+            )
+
+        return cleaned_data

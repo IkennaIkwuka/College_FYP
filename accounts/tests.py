@@ -244,6 +244,55 @@ class AdminOnlyViewsTests(TestCase):
         self.assertFalse(User.objects.filter(email="another@example.com").exists())
         self.assertContains(response, "already exists")
 
+    def test_admin_can_add_registrar_when_none_active(self):
+        self.client.login(username="admin", password="pass12345")
+        response = self.client.post(
+            reverse("accounts:staff_add"),
+            {
+                "first_name": "First",
+                "last_name": "Registrar",
+                "email": "firstreg@example.com",
+                "staff_id": "2026/REG/001",
+                "group": Group.objects.get(name=REGISTRAR_GROUP).id,
+            },
+        )
+        self.assertRedirects(response, reverse("accounts:manage_staff"))
+        self.assertTrue(User.objects.filter(email="firstreg@example.com").exists())
+
+    def test_admin_cannot_add_second_active_registrar(self):
+        make_registrar()
+        self.client.login(username="admin", password="pass12345")
+        response = self.client.post(
+            reverse("accounts:staff_add"),
+            {
+                "first_name": "Second",
+                "last_name": "Registrar",
+                "email": "secondreg@example.com",
+                "staff_id": "2026/REG/002",
+                "group": Group.objects.get(name=REGISTRAR_GROUP).id,
+            },
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(User.objects.filter(email="secondreg@example.com").exists())
+        self.assertContains(response, "already an active Registrar")
+
+    def test_admin_cannot_add_second_active_bursar(self):
+        make_bursar()
+        self.client.login(username="admin", password="pass12345")
+        response = self.client.post(
+            reverse("accounts:staff_add"),
+            {
+                "first_name": "Second",
+                "last_name": "Bursar",
+                "email": "secondbursar@example.com",
+                "staff_id": "2026/BUR/002",
+                "group": Group.objects.get(name=BURSAR_GROUP).id,
+            },
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(User.objects.filter(email="secondbursar@example.com").exists())
+        self.assertContains(response, "already an active Bursar")
+
     def test_admin_can_edit_staff(self):
         staff = make_hod(username="hodtoedit")
         self.client.login(username="admin", password="pass12345")
@@ -289,6 +338,95 @@ class AdminOnlyViewsTests(TestCase):
             },
         )
         self.assertRedirects(response, reverse("accounts:manage_staff"))
+
+    def test_admin_cannot_promote_staff_to_registrar_while_one_is_active(self):
+        make_registrar()
+        staff = make_hod(username="hodtopromote")
+        self.client.login(username="admin", password="pass12345")
+        response = self.client.post(
+            reverse("accounts:staff_edit", args=[staff.id]),
+            {
+                "first_name": staff.first_name,
+                "last_name": staff.last_name,
+                "email": staff.email,
+                "is_active": "on",
+                "group": Group.objects.get(name=REGISTRAR_GROUP).id,
+            },
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "already an active Registrar")
+        staff.refresh_from_db()
+        self.assertTrue(staff.groups.filter(name=HOD_GROUP).exists())
+
+    def test_admin_can_promote_staff_to_registrar_after_deactivating_current(self):
+        current_registrar = make_registrar()
+        staff = make_hod(username="hodtopromote2")
+        self.client.login(username="admin", password="pass12345")
+
+        deactivate_response = self.client.post(
+            reverse("accounts:staff_edit", args=[current_registrar.id]),
+            {
+                "first_name": current_registrar.first_name,
+                "last_name": current_registrar.last_name,
+                "email": current_registrar.email,
+                # is_active omitted - unchecked checkbox
+                "group": Group.objects.get(name=REGISTRAR_GROUP).id,
+            },
+        )
+        self.assertRedirects(deactivate_response, reverse("accounts:manage_staff"))
+
+        promote_response = self.client.post(
+            reverse("accounts:staff_edit", args=[staff.id]),
+            {
+                "first_name": staff.first_name,
+                "last_name": staff.last_name,
+                "email": staff.email,
+                "is_active": "on",
+                "group": Group.objects.get(name=REGISTRAR_GROUP).id,
+            },
+        )
+        self.assertRedirects(promote_response, reverse("accounts:manage_staff"))
+        staff.refresh_from_db()
+        self.assertTrue(staff.groups.filter(name=REGISTRAR_GROUP).exists())
+
+    def test_over_cap_registrar_account_blocks_unrelated_edits_but_allows_deactivating(self):
+        # Simulate a pre-existing violation (e.g. from before this cap existed, or
+        # created outside the app) rather than going through the form, since the form
+        # itself would now refuse to create it.
+        first = make_registrar(username="reg_first")
+        second = make_registrar(username="reg_second")
+        self.client.login(username="admin", password="pass12345")
+
+        blocked_response = self.client.post(
+            reverse("accounts:staff_edit", args=[second.id]),
+            {
+                "first_name": "Renamed",
+                "last_name": second.last_name,
+                "email": second.email,
+                "is_active": "on",
+                "group": Group.objects.get(name=REGISTRAR_GROUP).id,
+            },
+        )
+        self.assertEqual(blocked_response.status_code, 200)
+        self.assertContains(blocked_response, "multiple active Registrar accounts")
+        second.refresh_from_db()
+        self.assertEqual(second.first_name, "")
+
+        resolve_response = self.client.post(
+            reverse("accounts:staff_edit", args=[second.id]),
+            {
+                "first_name": second.first_name,
+                "last_name": second.last_name,
+                "email": second.email,
+                # is_active omitted - unchecked checkbox, resolves the violation
+                "group": Group.objects.get(name=REGISTRAR_GROUP).id,
+            },
+        )
+        self.assertRedirects(resolve_response, reverse("accounts:manage_staff"))
+        second.refresh_from_db()
+        self.assertFalse(second.is_active)
+        first.refresh_from_db()
+        self.assertTrue(first.is_active)
 
     def test_deactivated_staff_cannot_log_in(self):
         staff = make_hod(username="hodtodeactivate")
