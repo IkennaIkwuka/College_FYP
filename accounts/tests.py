@@ -151,8 +151,6 @@ class AdminOnlyViewsTests(TestCase):
     def test_non_admin_forbidden(self):
         self.client.login(username=self.student_profile.user.username, password=settings.DEFAULT_PASSWORD)
         for name in [
-            "accounts:register",
-            "students:bulk_import",
             "students:lookup",
             "accounts:manage_staff",
             "accounts:staff_add",
@@ -170,8 +168,26 @@ class AdminOnlyViewsTests(TestCase):
             403,
         )
 
-    def test_admin_can_add_student(self):
+    def test_admin_forbidden_from_add_student(self):
         self.client.login(username="admin", password="pass12345")
+        response = self.client.post(
+            reverse("accounts:register"),
+            {
+                "first_name": "New",
+                "last_name": "Student",
+                "email": "new@example.com",
+                "matric_number": "2023/CSC/099",
+                "department": self.department.id,
+                "level": 100,
+                "admission_type": "UTME",
+            },
+        )
+        self.assertEqual(response.status_code, 403)
+        self.assertFalse(StudentProfile.objects.filter(matric_number="2023/CSC/099").exists())
+
+    def test_registrar_can_add_student(self):
+        make_registrar()
+        self.client.login(username="reg1", password="pass12345")
         response = self.client.post(
             reverse("accounts:register"),
             {

@@ -59,9 +59,10 @@ LOGIN_URL = 'login'
 LOGIN_REDIRECT_URL = 'dashboard'
 LOGOUT_REDIRECT_URL = 'login'
 
-# Initial password for every admin-created account - students via Add Student/Bulk
-# Import, staff via Manage Staff or Django admin. Forced change on first login (students
-# also need the PIN emailed to them at creation time - see StudentProfile.pin_hash).
+# Initial password for every created account - students via Add Student/Bulk Import
+# (Registrar), staff via Manage Staff (IT Admin) or Django admin. Forced change on first
+# login (students also need the PIN emailed to them at creation time - see
+# StudentProfile.pin_hash).
 # Bump this every academic year, e.g. 'lu2027' for the 2027 intake.
 DEFAULT_PASSWORD = 'lu2026'
 

@@ -34,7 +34,7 @@ from .models import User
 from .services import assign_staff_identity, force_password_reset
 
 
-@admin_required
+@registrar_required
 def register(request):
     if request.method == "POST":
         form = StudentAccountForm(request.POST)

@@ -67,7 +67,7 @@ def _validate_row(row, seen_matrics, seen_emails):
     return errors
 
 
-@admin_required
+@registrar_required
 def bulk_import(request):
     if request.method == "POST":
         form = BulkImportForm(request.POST, request.FILES)

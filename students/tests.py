@@ -31,8 +31,8 @@ def make_registrar(username="reg1"):
 class BulkImportTests(TestCase):
     def setUp(self):
         self.department = Department.objects.create(name="Computer Science")
-        self.admin = make_admin()
-        self.client.login(username="admin", password="pass12345")
+        self.registrar = make_registrar()
+        self.client.login(username="reg1", password="pass12345")
 
     def _upload(self, content):
         csv_file = SimpleUploadedFile("students.csv", content.encode("utf-8"), content_type="text/csv")
@@ -337,3 +337,4 @@ class ManageStudentsTests(TestCase):
         self.assertEqual(
             self.client.get(reverse("students:student_edit", args=[self.profile.id])).status_code, 403
         )
+        self.assertEqual(self.client.get(reverse("students:bulk_import")).status_code, 403)
