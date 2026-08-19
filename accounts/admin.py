@@ -3,10 +3,9 @@ from django.conf import settings
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 
-from lu_sims.id_format import InvalidAcademicID, format_academic_id
-
+from .forms import STAFF_GROUPS
 from .models import User
-from .services import assign_staff_identity
+from .services import assign_staff_identity, generate_staff_id
 
 
 class StaffAccountAddForm(forms.ModelForm):
@@ -15,25 +14,22 @@ class StaffAccountAddForm(forms.ModelForm):
     Deliberately has no username/password fields - because they're absent here,
     ModelForm._post_clean() skips validating them on instance.full_clean(), the same
     mechanism Django's own UserCreationForm relies on for its password fields. IT Admin
-    fills in who the person is and their staff_id; assign_staff_identity() (called from
-    save_model below) derives the username and invents the initial password. Not
-    Bootstrap-styled - this form only ever renders inside Django admin's own theme,
-    never a portal template.
+    fills in who the person is and picks their role; assign_staff_identity() (called
+    from save_model below) generates the staff_id/username and invents the initial
+    password. Not Bootstrap-styled - this form only ever renders inside Django admin's
+    own theme, never a portal template.
     """
 
     class Meta:
         model = User
-        fields = ("first_name", "last_name", "email", "staff_id", "groups")
+        fields = ("first_name", "last_name", "email", "groups")
 
-    def clean_staff_id(self):
-        # Normalize before the model's own unique=True check runs (in _post_clean,
-        # after this), so a case/separator-variant duplicate is caught here as a form
-        # error instead of slipping through and hitting an IntegrityError at save time
-        # once assign_staff_identity's username derivation forces lowercase.
-        try:
-            return format_academic_id(self.cleaned_data["staff_id"])
-        except InvalidAcademicID as e:
-            raise forms.ValidationError(str(e))
+    def clean_groups(self):
+        groups = self.cleaned_data["groups"]
+        staff_groups = [g for g in groups if g.name in STAFF_GROUPS]
+        if len(staff_groups) != 1:
+            raise forms.ValidationError("Select exactly one staff role.")
+        return groups
 
 
 @admin.register(User)
@@ -49,11 +45,11 @@ class UserAdmin(BaseUserAdmin):
 
     add_form = StaffAccountAddForm
     add_fieldsets = (
-        (None, {"fields": ("first_name", "last_name", "email", "staff_id", "groups")}),
+        (None, {"fields": ("first_name", "last_name", "email", "groups")}),
     )
 
     def get_readonly_fields(self, request, obj=None):
-        # staff_id is IT Admin's call at creation time, then locked - changing it later
+        # staff_id is system-generated at creation time, then locked - changing it later
         # would desync from the username, which is already derived and fixed by then.
         readonly = super().get_readonly_fields(request, obj)
         if obj is not None:
@@ -62,6 +58,8 @@ class UserAdmin(BaseUserAdmin):
 
     def save_model(self, request, obj, form, change):
         if not change:
+            group = next(g for g in form.cleaned_data["groups"] if g.name in STAFF_GROUPS)
+            obj.staff_id = generate_staff_id(group)
             assign_staff_identity(obj)
         super().save_model(request, obj, form, change)
         if not change:

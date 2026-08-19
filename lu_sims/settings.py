@@ -66,6 +66,11 @@ LOGOUT_REDIRECT_URL = 'login'
 # Bump this every academic year, e.g. 'lu2027' for the 2027 intake.
 DEFAULT_PASSWORD = 'lu2026'
 
+# University prefix embedded in generated staff IDs (e.g. 'LU-RG-26-0001') - a settings
+# constant rather than hardcoded so a future multi-institution deployment only needs to
+# change this, not the ID-generation code itself.
+UNIVERSITY_ABBREVIATION = 'LU'
+
 # Academic session students register courses under. Bump this every academic year,
 # e.g. '2026/2027' for the next intake.
 CURRENT_SESSION = '2025/2026'

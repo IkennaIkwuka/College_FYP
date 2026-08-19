@@ -214,35 +214,31 @@ class AdminOnlyViewsTests(TestCase):
                 "first_name": "New",
                 "last_name": "Lecturer",
                 "email": "newlect@example.com",
-                "staff_id": "2026/CSC/010",
                 "group": Group.objects.get(name=LECTURER_GROUP).id,
             },
         )
         self.assertRedirects(response, reverse("accounts:manage_staff"))
         new_staff = User.objects.get(email="newlect@example.com")
-        self.assertEqual(new_staff.staff_id, "2026/CSC/010")
-        self.assertEqual(new_staff.username, "2026csc010")
+        self.assertRegex(new_staff.staff_id, r"^LU-LC-\d{2}-\d{4}$")
+        self.assertEqual(new_staff.username, re.sub(r"[^a-z0-9]", "", new_staff.staff_id.lower()))
         self.assertTrue(new_staff.groups.filter(name=LECTURER_GROUP).exists())
 
-    def test_admin_cannot_add_staff_with_duplicate_id(self):
+    def test_staff_ids_are_sequential_within_role_and_year(self):
         self.client.login(username="admin", password="pass12345")
-        User.objects.create_user(
-            username="existinghod", email="existinghod@example.com", password="pass12345",
-            staff_id="2026/CSC/001",
-        )
-        response = self.client.post(
-            reverse("accounts:staff_add"),
-            {
-                "first_name": "Another",
-                "last_name": "Lecturer",
-                "email": "another@example.com",
-                "staff_id": "2026/csc/001",
-                "group": Group.objects.get(name=LECTURER_GROUP).id,
-            },
-        )
-        self.assertEqual(response.status_code, 200)
-        self.assertFalse(User.objects.filter(email="another@example.com").exists())
-        self.assertContains(response, "already exists")
+        for i in range(2):
+            self.client.post(
+                reverse("accounts:staff_add"),
+                {
+                    "first_name": "Lect",
+                    "last_name": str(i),
+                    "email": f"lect{i}@example.com",
+                    "group": Group.objects.get(name=LECTURER_GROUP).id,
+                },
+            )
+        first = User.objects.get(email="lect0@example.com")
+        second = User.objects.get(email="lect1@example.com")
+        self.assertTrue(first.staff_id.endswith("-0001"))
+        self.assertTrue(second.staff_id.endswith("-0002"))
 
     def test_admin_can_add_registrar_when_none_active(self):
         self.client.login(username="admin", password="pass12345")
@@ -252,7 +248,6 @@ class AdminOnlyViewsTests(TestCase):
                 "first_name": "First",
                 "last_name": "Registrar",
                 "email": "firstreg@example.com",
-                "staff_id": "2026/REG/001",
                 "group": Group.objects.get(name=REGISTRAR_GROUP).id,
             },
         )
@@ -268,7 +263,6 @@ class AdminOnlyViewsTests(TestCase):
                 "first_name": "Second",
                 "last_name": "Registrar",
                 "email": "secondreg@example.com",
-                "staff_id": "2026/REG/002",
                 "group": Group.objects.get(name=REGISTRAR_GROUP).id,
             },
         )
@@ -285,7 +279,6 @@ class AdminOnlyViewsTests(TestCase):
                 "first_name": "Second",
                 "last_name": "Bursar",
                 "email": "secondbursar@example.com",
-                "staff_id": "2026/BUR/002",
                 "group": Group.objects.get(name=BURSAR_GROUP).id,
             },
         )
@@ -480,16 +473,16 @@ class StaffIdentityTests(TestCase):
 
     def test_username_derived_from_staff_id(self):
         user = assign_staff_identity(
-            User(email="a@example.com", first_name="A", last_name="One", staff_id="2026/CSC/003")
+            User(email="a@example.com", first_name="A", last_name="One", staff_id="LU-LC-26-0003")
         )
         user.save()
 
-        self.assertEqual(user.staff_id, "2026/CSC/003")
-        self.assertEqual(user.username, "2026csc003")
+        self.assertEqual(user.staff_id, "LU-LC-26-0003")
+        self.assertEqual(user.username, "lulc260003")
 
     def test_default_password_and_forced_change(self):
         user = assign_staff_identity(
-            User(email="c@example.com", first_name="C", last_name="Three", staff_id="2026/CSC/004")
+            User(email="c@example.com", first_name="C", last_name="Three", staff_id="LU-LC-26-0004")
         )
         user.save()
         self.assertTrue(user.check_password(settings.DEFAULT_PASSWORD))
@@ -510,16 +503,45 @@ class AdminStaffCreationTests(TestCase):
                 "first_name": "Grace",
                 "last_name": "Hopper",
                 "email": "grace@example.com",
-                "staff_id": "2026/CSC/020",
                 "groups": [Group.objects.get(name=LECTURER_GROUP).id],
             },
         )
         self.assertEqual(response.status_code, 302)
         user = User.objects.get(email="grace@example.com")
-        self.assertEqual(user.staff_id, "2026/CSC/020")
-        self.assertEqual(user.username, "2026csc020")
+        self.assertRegex(user.staff_id, r"^LU-LC-\d{2}-\d{4}$")
+        self.assertEqual(user.username, re.sub(r"[^a-z0-9]", "", user.staff_id.lower()))
         self.assertTrue(user.must_change_password)
         self.assertTrue(user.groups.filter(name=LECTURER_GROUP).exists())
+
+    def test_admin_add_form_rejects_zero_or_multiple_staff_groups(self):
+        response = self.client.post(
+            reverse("admin:accounts_user_add"),
+            {
+                "first_name": "Grace",
+                "last_name": "Hopper",
+                "email": "grace2@example.com",
+                "groups": [
+                    Group.objects.get(name=LECTURER_GROUP).id,
+                    Group.objects.get(name=HOD_GROUP).id,
+                ],
+            },
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(User.objects.filter(email="grace2@example.com").exists())
+        self.assertContains(response, "Select exactly one staff role.")
+
+        response = self.client.post(
+            reverse("admin:accounts_user_add"),
+            {
+                "first_name": "Grace",
+                "last_name": "Hopper",
+                "email": "grace3@example.com",
+                "groups": [],
+            },
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(User.objects.filter(email="grace3@example.com").exists())
+        self.assertContains(response, "Select exactly one staff role.")
 
 
 class ProfilePageTests(TestCase):

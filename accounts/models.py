@@ -1,8 +1,6 @@
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 
-from lu_sims.id_format import format_academic_id
-
 ADMIN_GROUP = "IT Admin"
 LECTURER_GROUP = "Lecturer"
 STUDENT_GROUP = "Student"
@@ -10,6 +8,16 @@ HOD_GROUP = "HOD"
 REGISTRAR_GROUP = "Registrar"
 BURSAR_GROUP = "Bursar"
 DEAN_GROUP = "Dean"
+
+# 2-letter code embedded in generated staff IDs (e.g. "LU-RG-26-0001").
+STAFF_ROLE_CODES = {
+    ADMIN_GROUP: "AD",
+    HOD_GROUP: "HD",
+    LECTURER_GROUP: "LC",
+    REGISTRAR_GROUP: "RG",
+    BURSAR_GROUP: "BS",
+    DEAN_GROUP: "DN",
+}
 
 
 class User(AbstractUser):
@@ -22,11 +30,6 @@ class User(AbstractUser):
     # student's staff_id being empty doesn't collide under the unique constraint -
     # SQL treats multiple NULLs as non-conflicting, unlike multiple empty strings.
     staff_id = models.CharField(max_length=20, unique=True, null=True, blank=True)
-
-    def save(self, *args, **kwargs):
-        if self.staff_id:
-            self.staff_id = format_academic_id(self.staff_id)
-        super().save(*args, **kwargs)
 
     def __str__(self):
         # AbstractUser's default falls back to username, which is a stripped-down
@@ -64,3 +67,23 @@ class User(AbstractUser):
     @property
     def is_dean(self):
         return self.has_role(DEAN_GROUP)
+
+
+class StaffIDSequence(models.Model):
+    """Per-role-per-year counter driving staff IDs like "LU-RG-26-0001".
+
+    A dedicated counter (rather than scanning User.staff_id for the current max) stays
+    correct even after a staff account is deleted, and is what generate_staff_id() in
+    accounts.services locks via select_for_update() to keep concurrent staff creation
+    from handing out the same ID twice. select_for_update() is a no-op on SQLite (it has
+    no row-locking support), but SQLite's own single-writer transaction lock already
+    serializes this correctly today - and this becomes correct on Postgres/MySQL too,
+    with no code change, if the project ever moves off SQLite.
+    """
+
+    role_code = models.CharField(max_length=2)
+    year = models.PositiveSmallIntegerField()
+    last_number = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        unique_together = ("role_code", "year")

@@ -31,7 +31,7 @@ from .forms import (
     StudentAccountForm,
 )
 from .models import User
-from .services import assign_staff_identity, force_password_reset
+from .services import assign_staff_identity, force_password_reset, generate_staff_id
 
 
 @registrar_required
@@ -148,7 +148,7 @@ def staff_add(request):
                 first_name=form.cleaned_data["first_name"],
                 last_name=form.cleaned_data["last_name"],
                 email=form.cleaned_data["email"],
-                staff_id=form.cleaned_data["staff_id"],
+                staff_id=generate_staff_id(form.cleaned_data["group"]),
             )
             assign_staff_identity(user)
             user.save()

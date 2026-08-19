@@ -123,17 +123,7 @@ class StaffAccountForm(BootstrapFormMixin, forms.Form):
     first_name = forms.CharField(max_length=150)
     last_name = forms.CharField(max_length=150)
     email = forms.EmailField()
-    staff_id = forms.CharField(max_length=20)
     group = forms.ModelChoiceField(queryset=Group.objects.filter(name__in=STAFF_GROUPS), label="Role")
-
-    def clean_staff_id(self):
-        try:
-            staff_id = format_academic_id(self.cleaned_data["staff_id"])
-        except InvalidAcademicID as e:
-            raise forms.ValidationError(str(e))
-        if User.objects.filter(staff_id=staff_id).exists():
-            raise forms.ValidationError("A staff member with this ID already exists.")
-        return staff_id
 
     def clean_email(self):
         email = self.cleaned_data["email"].strip().lower()
