@@ -29,6 +29,50 @@ def make_registrar(username="reg1"):
     return registrar
 
 
+class RegisterViewTests(TestCase):
+    def setUp(self):
+        self.department = Department.objects.create(name="Computer Science")
+
+    def test_admin_forbidden_from_add_student(self):
+        make_admin()
+        self.client.login(username="admin", password="pass12345")
+        response = self.client.post(
+            reverse("students:register"),
+            {
+                "first_name": "New",
+                "last_name": "Student",
+                "email": "new@example.com",
+                "matric_number": "2023/CSC/099",
+                "department": self.department.id,
+                "level": 100,
+                "admission_type": "UTME",
+            },
+        )
+        self.assertEqual(response.status_code, 403)
+        self.assertFalse(StudentProfile.objects.filter(matric_number="2023/CSC/099").exists())
+
+    def test_registrar_can_add_student(self):
+        make_registrar()
+        self.client.login(username="reg1", password="pass12345")
+        response = self.client.post(
+            reverse("students:register"),
+            {
+                "first_name": "New",
+                "last_name": "Student",
+                "email": "new@example.com",
+                "matric_number": "2023/CSC/099",
+                "department": self.department.id,
+                "level": 100,
+                "admission_type": "UTME",
+            },
+        )
+        self.assertRedirects(response, reverse("students:register"))
+        self.assertTrue(StudentProfile.objects.filter(matric_number="2023/CSC/099").exists())
+        # No PIN is issued at creation anymore - the student requests one themselves
+        # at first login (accounts:send_pin_code).
+        self.assertEqual(len(mail.outbox), 0)
+
+
 class BulkImportTests(TestCase):
     def setUp(self):
         self.department = Department.objects.create(name="Computer Science")

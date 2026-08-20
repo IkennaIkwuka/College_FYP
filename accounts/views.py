@@ -11,7 +11,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse, reverse_lazy
 from django.utils import timezone
 
-from students.services import create_student_account, reset_student_pin, send_pin_email
+from students.services import reset_student_pin, send_pin_email
 
 from .decorators import (
     admin_required,
@@ -30,42 +30,9 @@ from .forms import (
     PreferredUsernameForm,
     StaffAccountForm,
     StaffEditForm,
-    StudentAccountForm,
 )
 from .models import User
 from .services import assign_staff_identity, force_password_reset, generate_staff_id
-
-
-@registrar_required
-def register(request):
-    if request.method == "POST":
-        form = StudentAccountForm(request.POST)
-        if form.is_valid():
-            profile = create_student_account(
-                matric_number=form.cleaned_data["matric_number"],
-                first_name=form.cleaned_data["first_name"],
-                last_name=form.cleaned_data["last_name"],
-                email=form.cleaned_data["email"],
-                department=form.cleaned_data["department"],
-                entry_level=form.cleaned_data["level"],
-                admission_type=form.cleaned_data["admission_type"],
-            )
-            messages.success(
-                request,
-                f"Student {form.cleaned_data['matric_number']} added. "
-                f'Their username is "{profile.user.username}"; '
-                f'initial password is "{settings.DEFAULT_PASSWORD}". '
-                "They'll request a verification code themselves at first login.",
-            )
-            return redirect("accounts:register")
-    else:
-        form = StudentAccountForm()
-
-    return render(
-        request,
-        "accounts/register.html",
-        {"form": form, "default_password": settings.DEFAULT_PASSWORD},
-    )
 
 
 @login_required

@@ -14,13 +14,45 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
 
-from .forms import BulkImportForm, DepartmentForm, FacultyForm, StudentEditForm, StudentProfileForm
+from .forms import BulkImportForm, DepartmentForm, FacultyForm, StudentAccountForm, StudentEditForm, StudentProfileForm
 from .models import ADMISSION_TYPE_CHOICES, LEVEL_CHOICES, Department, Faculty, StudentProfile
 from .services import create_student_account, reset_student_pin, send_pin_email, sync_username_to_matric_number
 
 REQUIRED_COLUMNS = {"matric_number", "first_name", "last_name", "email", "department", "level"}
 OPTIONAL_COLUMNS = {"date_of_birth", "gender", "phone_number", "address"}
 VALID_LEVELS = {str(level) for level, _ in LEVEL_CHOICES}
+
+
+@registrar_required
+def register(request):
+    if request.method == "POST":
+        form = StudentAccountForm(request.POST)
+        if form.is_valid():
+            profile = create_student_account(
+                matric_number=form.cleaned_data["matric_number"],
+                first_name=form.cleaned_data["first_name"],
+                last_name=form.cleaned_data["last_name"],
+                email=form.cleaned_data["email"],
+                department=form.cleaned_data["department"],
+                entry_level=form.cleaned_data["level"],
+                admission_type=form.cleaned_data["admission_type"],
+            )
+            messages.success(
+                request,
+                f"Student {form.cleaned_data['matric_number']} added. "
+                f'Their username is "{profile.user.username}"; '
+                f'initial password is "{settings.DEFAULT_PASSWORD}". '
+                "They'll request a verification code themselves at first login.",
+            )
+            return redirect("students:register")
+    else:
+        form = StudentAccountForm()
+
+    return render(
+        request,
+        "students/register.html",
+        {"form": form, "default_password": settings.DEFAULT_PASSWORD},
+    )
 
 
 def _validate_row(row, seen_matrics, seen_emails):
