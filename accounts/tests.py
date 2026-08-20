@@ -613,6 +613,18 @@ class PreferredUsernameFormTests(TestCase):
         self.assertTrue(form.is_valid(), form.errors)
         self.assertIsNone(form.cleaned_data["preferred_username"])
 
+    def test_field_is_not_readonly_when_no_cooldown(self):
+        form = PreferredUsernameForm(user=self.hod)
+        self.assertNotIn("readonly", form.fields["preferred_username"].widget.attrs)
+
+    def test_field_is_readonly_during_cooldown(self):
+        self.hod.preferred_username = "originalname"
+        self.hod.preferred_username_changed_at = timezone.now()
+        self.hod.save(update_fields=["preferred_username", "preferred_username_changed_at"])
+        form = PreferredUsernameForm(user=self.hod)
+        self.assertTrue(form.fields["preferred_username"].widget.attrs.get("readonly"))
+        self.assertEqual(form.initial["preferred_username"], "originalname")
+
 
 class PreferredUsernameViewTests(TestCase):
     def test_staff_can_set_preferred_username(self):

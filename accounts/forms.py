@@ -60,11 +60,29 @@ class PreferredUsernameForm(BootstrapFormMixin, forms.Form):
     User.preferred_username, not the rest of the profile.
     """
 
-    preferred_username = forms.CharField(max_length=150, required=False, label="Preferred username")
+    FORMAT_HINT = "Must start with a letter. 4-150 characters. Letters, numbers, . _ - only."
+
+    preferred_username = forms.CharField(
+        max_length=150,
+        required=False,
+        label="Preferred username",
+        help_text=FORMAT_HINT,
+        widget=forms.TextInput(attrs={"data-username-hint": "preferred-username-hint"}),
+    )
 
     def __init__(self, *args, user, **kwargs):
         self.user = user
         super().__init__(*args, **kwargs)
+        if user.preferred_username_locked_until:
+            # readonly, not disabled - a disabled field makes Django substitute the
+            # initial value for whatever was POSTed, which would silently swallow a
+            # tampered submission instead of hitting the cooldown check in clean()
+            # below. readonly blocks typing but submits normally; Bootstrap doesn't
+            # grey out [readonly] the way it does :disabled, so add that explicitly.
+            widget_attrs = self.fields["preferred_username"].widget.attrs
+            widget_attrs["readonly"] = True
+            widget_attrs["class"] = f"{widget_attrs.get('class', '')} bg-body-secondary".strip()
+            self.initial["preferred_username"] = user.preferred_username
 
     def clean_preferred_username(self):
         value = self.cleaned_data["preferred_username"].strip()

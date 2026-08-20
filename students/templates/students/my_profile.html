@@ -39,10 +39,20 @@
             {% if user.preferred_username_locked_until %}
                 <p class="text-muted small">You can change it again on {{ user.preferred_username_locked_until|date:"Y-m-d" }}.</p>
             {% endif %}
+            {% if username_form.non_field_errors %}
+                <div class="alert alert-danger">{{ username_form.non_field_errors }}</div>
+            {% endif %}
             <form method="post">
                 {% csrf_token %}
-                {{ username_form.as_p }}
-                <button type="submit" name="save_username" class="btn btn-primary">Save</button>
+                <div class="mb-3">
+                    <label for="{{ username_form.preferred_username.id_for_label }}" class="form-label">{{ username_form.preferred_username.label }}</label>
+                    {{ username_form.preferred_username }}
+                    <small id="preferred-username-hint" class="form-text text-muted">{{ username_form.preferred_username.help_text }}</small>
+                    {% for error in username_form.preferred_username.errors %}
+                        <div class="text-danger small">{{ error }}</div>
+                    {% endfor %}
+                </div>
+                <button type="submit" name="save_username" class="btn btn-primary" {% if user.preferred_username_locked_until %}disabled{% endif %}>Save</button>
             </form>
         </div>
     </div>
