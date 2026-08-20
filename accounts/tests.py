@@ -1,13 +1,16 @@
 import re
+from datetime import timedelta
 
 from django.conf import settings
 from django.contrib.auth.models import Group
 from django.core import mail
 from django.test import TestCase
 from django.urls import reverse
+from django.utils import timezone
 from students.models import Department, StudentProfile
 from students.services import create_student_account
 
+from .forms import PreferredUsernameForm
 from .models import ADMIN_GROUP, BURSAR_GROUP, DEAN_GROUP, HOD_GROUP, LECTURER_GROUP, REGISTRAR_GROUP, User
 from .services import assign_staff_identity
 
@@ -580,6 +583,105 @@ class ProfilePageTests(TestCase):
         self.client.login(username=profile.user.username, password=settings.DEFAULT_PASSWORD)
         response = self.client.get(reverse("accounts:profile"))
         self.assertRedirects(response, reverse("students:my_profile"))
+
+
+class PreferredUsernameLockedUntilTests(TestCase):
+    def test_none_when_never_changed(self):
+        hod = make_hod(username="pulock1")
+        self.assertIsNone(hod.preferred_username_locked_until)
+
+    def test_future_right_after_a_change(self):
+        hod = make_hod(username="pulock2")
+        hod.preferred_username = "adaeze"
+        hod.preferred_username_changed_at = timezone.now()
+        hod.save(update_fields=["preferred_username", "preferred_username_changed_at"])
+        self.assertIsNotNone(hod.preferred_username_locked_until)
+        self.assertGreater(hod.preferred_username_locked_until, timezone.now())
+
+    def test_none_again_once_cooldown_has_passed(self):
+        hod = make_hod(username="pulock3")
+        hod.preferred_username = "adaeze"
+        hod.preferred_username_changed_at = timezone.now() - timedelta(
+            days=settings.PREFERRED_USERNAME_COOLDOWN_DAYS + 1
+        )
+        hod.save(update_fields=["preferred_username", "preferred_username_changed_at"])
+        self.assertIsNone(hod.preferred_username_locked_until)
+
+
+class PreferredUsernameFormTests(TestCase):
+    def setUp(self):
+        self.hod = make_hod(username="puform1")
+        self.other = make_lecturer(username="puform2")
+
+    def test_accepts_a_valid_new_value(self):
+        form = PreferredUsernameForm({"preferred_username": "AdaEze"}, user=self.hod)
+        self.assertTrue(form.is_valid(), form.errors)
+        self.assertEqual(form.cleaned_data["preferred_username"], "adaeze")
+
+    def test_rejects_duplicate_against_another_users_username(self):
+        form = PreferredUsernameForm({"preferred_username": self.other.username}, user=self.hod)
+        self.assertFalse(form.is_valid())
+        self.assertIn("already taken", str(form.errors))
+
+    def test_rejects_duplicate_against_another_users_preferred_username(self):
+        self.other.preferred_username = "takenname"
+        self.other.preferred_username_changed_at = timezone.now()
+        self.other.save(update_fields=["preferred_username", "preferred_username_changed_at"])
+        form = PreferredUsernameForm({"preferred_username": "TakenName"}, user=self.hod)
+        self.assertFalse(form.is_valid())
+        self.assertIn("already taken", str(form.errors))
+
+    def test_rejects_while_on_cooldown(self):
+        self.hod.preferred_username = "originalname"
+        self.hod.preferred_username_changed_at = timezone.now()
+        self.hod.save(update_fields=["preferred_username", "preferred_username_changed_at"])
+        form = PreferredUsernameForm({"preferred_username": "newname"}, user=self.hod)
+        self.assertFalse(form.is_valid())
+        self.assertIn("change your preferred username again", str(form.errors))
+
+    def test_resubmitting_same_value_while_on_cooldown_is_allowed(self):
+        self.hod.preferred_username = "originalname"
+        self.hod.preferred_username_changed_at = timezone.now()
+        self.hod.save(update_fields=["preferred_username", "preferred_username_changed_at"])
+        form = PreferredUsernameForm({"preferred_username": "originalname"}, user=self.hod)
+        self.assertTrue(form.is_valid(), form.errors)
+
+    def test_clearing_to_blank_is_accepted(self):
+        form = PreferredUsernameForm({"preferred_username": ""}, user=self.hod)
+        self.assertTrue(form.is_valid(), form.errors)
+        self.assertIsNone(form.cleaned_data["preferred_username"])
+
+
+class PreferredUsernameViewTests(TestCase):
+    def test_staff_can_set_preferred_username(self):
+        make_hod(username="puview1")
+        self.client.login(username="puview1", password="pass12345")
+        response = self.client.post(reverse("accounts:profile"), {"preferred_username": "hodada"})
+        self.assertRedirects(response, reverse("accounts:profile"))
+        user = User.objects.get(username="puview1")
+        self.assertEqual(user.preferred_username, "hodada")
+
+    def test_second_change_within_cooldown_is_rejected(self):
+        make_hod(username="puview2")
+        self.client.login(username="puview2", password="pass12345")
+        self.client.post(reverse("accounts:profile"), {"preferred_username": "firstpick"})
+        response = self.client.post(reverse("accounts:profile"), {"preferred_username": "secondpick"})
+        self.assertEqual(response.status_code, 200)
+        user = User.objects.get(username="puview2")
+        self.assertEqual(user.preferred_username, "firstpick")
+
+
+class LenientUsernameBackendPreferredUsernameTests(TestCase):
+    def test_login_via_preferred_username(self):
+        hod = make_hod(username="lubpu1")
+        hod.preferred_username = "adaeze"
+        hod.preferred_username_changed_at = timezone.now()
+        hod.save(update_fields=["preferred_username", "preferred_username_changed_at"])
+        self.assertTrue(self.client.login(username="AdaEze", password="pass12345"))
+
+    def test_login_via_derived_username_still_works(self):
+        make_hod(username="lubpu2")
+        self.assertTrue(self.client.login(username="lubpu2", password="pass12345"))
 
 
 class DashboardRoutingTests(TestCase):

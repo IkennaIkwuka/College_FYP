@@ -9,6 +9,7 @@ from django.db.models import Q
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse, reverse_lazy
+from django.utils import timezone
 
 from students.services import create_student_account, reset_student_pin, send_pin_email
 
@@ -26,6 +27,7 @@ from .forms import (
     ChangePasswordForm,
     LoginForm,
     PinVerificationForm,
+    PreferredUsernameForm,
     StaffAccountForm,
     StaffEditForm,
     StudentAccountForm,
@@ -73,7 +75,19 @@ def profile(request):
     # to that instead of showing them this staff-oriented, view-only version.
     if request.user.is_student:
         return redirect("students:my_profile")
-    return render(request, "accounts/profile.html")
+
+    if request.method == "POST":
+        form = PreferredUsernameForm(request.POST, user=request.user)
+        if form.is_valid():
+            request.user.preferred_username = form.cleaned_data["preferred_username"]
+            request.user.preferred_username_changed_at = timezone.now()
+            request.user.save(update_fields=["preferred_username", "preferred_username_changed_at"])
+            messages.success(request, "Preferred username updated.")
+            return redirect("accounts:profile")
+    else:
+        form = PreferredUsernameForm(user=request.user)
+
+    return render(request, "accounts/profile.html", {"form": form})
 
 
 def _filtered_staff_users(request):

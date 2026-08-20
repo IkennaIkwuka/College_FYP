@@ -1,6 +1,9 @@
+import re
+
 from django import forms
 from django.contrib.auth.forms import AuthenticationForm, SetPasswordForm
 from django.contrib.auth.models import Group
+from django.db.models import Q
 from lu_sims.id_format import InvalidAcademicID, format_academic_id
 from students.models import ADMISSION_TYPE_CHOICES, LEVEL_CHOICES, Department, StudentProfile
 
@@ -49,6 +52,45 @@ class ChangePasswordForm(BootstrapFormMixin, SetPasswordForm):
     routes them through first - so this form itself no longer needs to know anything
     about PINs or student_profile at all.
     """
+
+
+class PreferredUsernameForm(BootstrapFormMixin, forms.Form):
+    """Lets a staff or student account set an optional second login credential.
+
+    Takes the acting user as an explicit kwarg (like PinVerificationForm takes
+    student_profile) rather than binding to a model instance - it only ever touches
+    User.preferred_username, not the rest of the profile.
+    """
+
+    preferred_username = forms.CharField(max_length=150, required=False, label="Preferred username")
+
+    def __init__(self, *args, user, **kwargs):
+        self.user = user
+        super().__init__(*args, **kwargs)
+
+    def clean_preferred_username(self):
+        value = self.cleaned_data["preferred_username"].strip()
+        if not value:
+            return None  # clearing it back to system-only login
+        if not re.fullmatch(r"[A-Za-z][A-Za-z0-9._-]{3,149}", value):
+            raise forms.ValidationError(
+                "Must start with a letter, 4-150 characters, letters/numbers/./_/- only."
+            )
+        value = value.lower()
+        if User.objects.exclude(pk=self.user.pk).filter(
+            Q(username__iexact=value) | Q(preferred_username__iexact=value)
+        ).exists():
+            raise forms.ValidationError("That username is already taken.")
+        return value
+
+    def clean(self):
+        cleaned_data = super().clean()
+        locked_until = self.user.preferred_username_locked_until
+        if locked_until and cleaned_data.get("preferred_username") != self.user.preferred_username:
+            raise forms.ValidationError(
+                f"You can change your preferred username again on {locked_until:%Y-%m-%d}."
+            )
+        return cleaned_data
 
 
 class PinVerificationForm(BootstrapFormMixin, forms.Form):

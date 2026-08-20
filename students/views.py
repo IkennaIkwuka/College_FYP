@@ -2,6 +2,7 @@ import csv
 import io
 
 from accounts.decorators import admin_required, registrar_required, student_required
+from accounts.forms import PreferredUsernameForm
 from accounts.services import force_password_reset
 from django.conf import settings
 from django.contrib import messages
@@ -11,6 +12,7 @@ from django.db.models import Q
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
+from django.utils import timezone
 
 from .forms import BulkImportForm, DepartmentForm, FacultyForm, StudentEditForm, StudentProfileForm
 from .models import ADMISSION_TYPE_CHOICES, LEVEL_CHOICES, Department, Faculty, StudentProfile
@@ -354,13 +356,28 @@ def student_edit(request, pk):
 def my_profile(request):
     profile = request.user.student_profile
 
-    if request.method == "POST":
-        form = StudentProfileForm(request.POST, instance=profile)
-        if form.is_valid():
-            form.save()
+    if request.method == "POST" and "save_username" in request.POST:
+        username_form = PreferredUsernameForm(request.POST, user=request.user)
+        profile_form = StudentProfileForm(instance=profile)
+        if username_form.is_valid():
+            request.user.preferred_username = username_form.cleaned_data["preferred_username"]
+            request.user.preferred_username_changed_at = timezone.now()
+            request.user.save(update_fields=["preferred_username", "preferred_username_changed_at"])
+            messages.success(request, "Preferred username updated.")
+            return redirect("students:my_profile")
+    elif request.method == "POST":
+        profile_form = StudentProfileForm(request.POST, instance=profile)
+        username_form = PreferredUsernameForm(user=request.user)
+        if profile_form.is_valid():
+            profile_form.save()
             messages.success(request, "Profile updated.")
             return redirect("students:my_profile")
     else:
-        form = StudentProfileForm(instance=profile)
+        profile_form = StudentProfileForm(instance=profile)
+        username_form = PreferredUsernameForm(user=request.user)
 
-    return render(request, "students/my_profile.html", {"form": form, "profile": profile})
+    return render(
+        request,
+        "students/my_profile.html",
+        {"form": profile_form, "username_form": username_form, "profile": profile},
+    )

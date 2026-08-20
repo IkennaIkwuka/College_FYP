@@ -18,13 +18,31 @@
         </div>
     </div>
 
-    <div class="card">
+    <div class="card mb-4">
         <div class="card-body">
             <h2 class="h5">Personal Details</h2>
             <form method="post">
                 {% csrf_token %}
                 {{ form.as_p }}
                 <button type="submit" class="btn btn-primary">Save</button>
+            </form>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-body">
+            <h2 class="h5">Preferred Username</h2>
+            <p class="text-muted small">
+                An optional second way to log in, alongside your matric-number-derived username (which always
+                still works). Currently: <strong>{{ user.preferred_username|default:"Not set" }}</strong>.
+            </p>
+            {% if user.preferred_username_locked_until %}
+                <p class="text-muted small">You can change it again on {{ user.preferred_username_locked_until|date:"Y-m-d" }}.</p>
+            {% endif %}
+            <form method="post">
+                {% csrf_token %}
+                {{ username_form.as_p }}
+                <button type="submit" name="save_username" class="btn btn-primary">Save</button>
             </form>
         </div>
     </div>

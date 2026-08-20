@@ -1,5 +1,9 @@
+from datetime import timedelta
+
+from django.conf import settings
 from django.contrib.auth.models import AbstractUser
 from django.db import models
+from django.utils import timezone
 
 ADMIN_GROUP = "IT Admin"
 LECTURER_GROUP = "Lecturer"
@@ -30,6 +34,14 @@ class User(AbstractUser):
     # student's staff_id being empty doesn't collide under the unique constraint -
     # SQL treats multiple NULLs as non-conflicting, unlike multiple empty strings.
     staff_id = models.CharField(max_length=20, unique=True, null=True, blank=True)
+    # Optional second login credential, self-chosen - the derived `username` above
+    # never stops working, this is purely an additional way in. null=True (not just
+    # blank) for the same reason as staff_id - multiple unset accounts shouldn't
+    # collide under the unique constraint.
+    preferred_username = models.CharField(max_length=150, unique=True, null=True, blank=True)
+    # When last changed, not an absolute unlock timestamp - so PREFERRED_USERNAME_COOLDOWN_DAYS
+    # can be tuned later without leaving already-set cooldowns stuck on the old duration.
+    preferred_username_changed_at = models.DateTimeField(null=True, blank=True)
 
     def __str__(self):
         # AbstractUser's default falls back to username, which is a stripped-down
@@ -67,6 +79,13 @@ class User(AbstractUser):
     @property
     def is_dean(self):
         return self.has_role(DEAN_GROUP)
+
+    @property
+    def preferred_username_locked_until(self):
+        if not self.preferred_username_changed_at:
+            return None
+        unlock = self.preferred_username_changed_at + timedelta(days=settings.PREFERRED_USERNAME_COOLDOWN_DAYS)
+        return unlock if unlock > timezone.now() else None
 
 
 class StaffIDSequence(models.Model):

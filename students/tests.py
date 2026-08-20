@@ -5,6 +5,7 @@ from django.core import mail
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase, override_settings
 from django.urls import reverse
+from django.utils import timezone
 
 from .models import Department, StudentProfile
 from .services import create_student_account
@@ -251,6 +252,30 @@ class MyProfileTests(TestCase):
         make_admin()
         self.client.login(username="admin", password="pass12345")
         self.assertEqual(self.client.get(reverse("students:my_profile")).status_code, 403)
+
+    def test_can_set_preferred_username_without_touching_personal_details(self):
+        response = self.client.post(
+            reverse("students:my_profile"),
+            {"preferred_username": "chidi_n", "save_username": "1"},
+        )
+        self.assertRedirects(response, reverse("students:my_profile"))
+        self.profile.user.refresh_from_db()
+        self.assertEqual(self.profile.user.preferred_username, "chidi_n")
+        self.profile.refresh_from_db()
+        self.assertEqual(self.profile.phone_number, "")
+
+    def test_updating_personal_details_does_not_touch_preferred_username(self):
+        self.profile.user.preferred_username = "chidi_n"
+        self.profile.user.preferred_username_changed_at = timezone.now()
+        self.profile.user.save(update_fields=["preferred_username", "preferred_username_changed_at"])
+
+        response = self.client.post(
+            reverse("students:my_profile"),
+            {"date_of_birth": "2000-01-01", "gender": "M", "phone_number": "08012345678", "address": "Okija"},
+        )
+        self.assertRedirects(response, reverse("students:my_profile"))
+        self.profile.user.refresh_from_db()
+        self.assertEqual(self.profile.user.preferred_username, "chidi_n")
 
 
 class ManageStudentsTests(TestCase):
