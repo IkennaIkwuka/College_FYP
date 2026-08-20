@@ -29,6 +29,28 @@ def send_pin_email(profile, raw_pin):
     )
 
 
+def derive_student_username(matric_number):
+    # Django's username field rejects "/", which real matric numbers contain (e.g.
+    # 2023/CSC/030), so this is just an internal ID - LenientUsernameBackend
+    # (accounts/auth_backends.py) is what actually lets a student log in typing
+    # the matric number in its natural shape instead of this stripped/lowercased form.
+    return matric_number.replace("/", "").lower()
+
+
+def sync_username_to_matric_number(profile):
+    """Re-derives profile.user.username from profile.matric_number and saves it if it
+    changed - matric_number is editable (registrar-facing StudentEditForm), but nothing
+    else keeps username in sync with it, so a corrected matric number would otherwise
+    silently leave the student logging in with a now-stale username forever.
+    """
+    new_username = derive_student_username(profile.matric_number)
+    if profile.user.username != new_username:
+        profile.user.username = new_username
+        profile.user.save(update_fields=["username"])
+        return True
+    return False
+
+
 def create_student_account(*, matric_number, first_name, last_name, email, department, entry_level, **optional_fields):
     """Creates the User+StudentProfile, returning the profile.
 
@@ -36,11 +58,7 @@ def create_student_account(*, matric_number, first_name, last_name, email, depar
     (accounts:send_pin_code), so it's never sitting unused in an old email.
     """
     matric_number = format_academic_id(matric_number)
-    # Django's username field rejects "/", which real matric numbers contain (e.g.
-    # 2023/CSC/030), so this is just an internal ID - LenientUsernameBackend
-    # (accounts/auth_backends.py) is what actually lets a student log in typing
-    # the matric number in its natural shape instead of this stripped/lowercased form.
-    username = matric_number.replace("/", "").lower()
+    username = derive_student_username(matric_number)
 
     user = User.objects.create_user(
         username=username,

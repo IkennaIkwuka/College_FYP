@@ -14,7 +14,7 @@ from django.urls import reverse
 
 from .forms import BulkImportForm, DepartmentForm, FacultyForm, StudentEditForm, StudentProfileForm
 from .models import ADMISSION_TYPE_CHOICES, LEVEL_CHOICES, Department, Faculty, StudentProfile
-from .services import create_student_account, reset_student_pin, send_pin_email
+from .services import create_student_account, reset_student_pin, send_pin_email, sync_username_to_matric_number
 
 REQUIRED_COLUMNS = {"matric_number", "first_name", "last_name", "email", "department", "level"}
 OPTIONAL_COLUMNS = {"date_of_birth", "gender", "phone_number", "address"}
@@ -336,7 +336,13 @@ def student_edit(request, pk):
         form = StudentEditForm(request.POST, instance=profile)
         if form.is_valid():
             form.save()
-            messages.success(request, f"Updated {profile.matric_number}.")
+            if sync_username_to_matric_number(profile):
+                messages.success(
+                    request,
+                    f"Updated {profile.matric_number}. Login username is now \"{profile.user.username}\".",
+                )
+            else:
+                messages.success(request, f"Updated {profile.matric_number}.")
             return redirect("students:manage_students")
     else:
         form = StudentEditForm(instance=profile)

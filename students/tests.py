@@ -330,6 +330,46 @@ class ManageStudentsTests(TestCase):
         self.profile.refresh_from_db()
         self.assertEqual(self.profile.phone_number, "08011112222")
 
+    def test_editing_matric_number_updates_username(self):
+        old_username = self.profile.user.username
+        response = self.client.post(
+            reverse("students:student_edit", args=[self.profile.id]),
+            {
+                "matric_number": "2023/CSC/199",
+                "department": self.department.id,
+                "entry_level": 200,
+                "admission_type": "UTME",
+                "date_of_birth": "",
+                "gender": "",
+                "phone_number": "",
+                "address": "",
+            },
+        )
+        self.assertRedirects(response, reverse("students:manage_students"))
+        self.profile.refresh_from_db()
+        self.assertEqual(self.profile.matric_number, "2023/CSC/199")
+        self.assertEqual(self.profile.user.username, "2023csc199")
+        self.assertNotEqual(self.profile.user.username, old_username)
+
+    def test_editing_without_changing_matric_number_leaves_username_alone(self):
+        old_username = self.profile.user.username
+        response = self.client.post(
+            reverse("students:student_edit", args=[self.profile.id]),
+            {
+                "matric_number": self.profile.matric_number,
+                "department": self.department.id,
+                "entry_level": 200,
+                "admission_type": "UTME",
+                "date_of_birth": "",
+                "gender": "",
+                "phone_number": "08011112222",
+                "address": "Awka",
+            },
+        )
+        self.assertRedirects(response, reverse("students:manage_students"))
+        self.profile.refresh_from_db()
+        self.assertEqual(self.profile.user.username, old_username)
+
     def test_non_registrar_forbidden(self):
         make_admin()
         self.client.login(username="admin", password="pass12345")
