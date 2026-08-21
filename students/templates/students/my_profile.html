@@ -7,6 +7,19 @@
 
     <div class="card mb-4">
         <div class="card-body">
+            <h2 class="h5">Account Details</h2>
+            <table class="table table-sm w-auto">
+                <tr><th>Name</th><td>{{ user.get_full_name|default:user.username }}</td></tr>
+                <tr><th>Email</th><td>{{ user.email }}</td></tr>
+                <tr><th>Username</th><td>{{ user.username }}</td></tr>
+                <tr><th>Date joined</th><td>{{ user.date_joined|date:"Y-m-d" }}</td></tr>
+                <tr><th>Last login</th><td>{{ user.last_login|date:"Y-m-d H:i"|default:"Never" }}</td></tr>
+            </table>
+        </div>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-body">
             <h2 class="h5">Academic Details</h2>
             <table class="table table-sm w-auto">
                 <tr><th>Matric number</th><td>{{ profile.matric_number }}</td></tr>

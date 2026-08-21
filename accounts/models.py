@@ -23,6 +23,15 @@ STAFF_ROLE_CODES = {
     DEAN_GROUP: "DN",
 }
 
+# Local copy, not shared with students.models.GENDER_CHOICES - students already
+# depends on accounts one-directionally, so importing the other way isn't an
+# option, and the two fields aren't otherwise unified (see accounts/models.py's
+# User.gender docstring below).
+GENDER_CHOICES = [
+    ("M", "Male"),
+    ("F", "Female"),
+]
+
 
 class User(AbstractUser):
     """Custom user model so role/permission logic isn't locked to Django's default auth.User."""
@@ -42,6 +51,14 @@ class User(AbstractUser):
     # When last changed, not an absolute unlock timestamp - so PREFERRED_USERNAME_COOLDOWN_DAYS
     # can be tuned later without leaving already-set cooldowns stuck on the old duration.
     preferred_username_changed_at = models.DateTimeField(null=True, blank=True)
+    # Self-service personal info, staff-only in practice - students already have
+    # equivalent fields on StudentProfile (phone_number/date_of_birth/gender/address),
+    # wired into bulk-import CSV columns, the registrar edit form, and lookup.html.
+    # Moving those onto User instead would mean a data migration for every existing
+    # student plus updating all of that, for no real benefit - kept separate instead.
+    phone_number = models.CharField(max_length=20, blank=True)
+    date_of_birth = models.DateField(null=True, blank=True)
+    gender = models.CharField(max_length=1, choices=GENDER_CHOICES, blank=True)
 
     def __str__(self):
         # AbstractUser's default falls back to username, which is a stripped-down

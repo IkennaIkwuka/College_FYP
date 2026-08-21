@@ -29,8 +29,10 @@ from .forms import (
     LoginForm,
     PinVerificationForm,
     PreferredUsernameForm,
+    SelfChangePasswordForm,
     StaffAccountForm,
     StaffEditForm,
+    StaffProfileForm,
 )
 from .models import User
 from .services import assign_staff_identity, force_password_reset, generate_staff_id
@@ -40,22 +42,33 @@ from .services import assign_staff_identity, force_password_reset, generate_staf
 def profile(request):
     # Students have their own richer profile page (academic details + editable
     # personal fields) - send anyone who lands here via a stale link or bookmark
-    # to that instead of showing them this staff-oriented, view-only version.
+    # to that instead of showing them this staff-oriented version.
     if request.user.is_student:
         return redirect("students:my_profile")
 
-    if request.method == "POST":
-        form = PreferredUsernameForm(request.POST, user=request.user)
-        if form.is_valid():
-            request.user.preferred_username = form.cleaned_data["preferred_username"]
+    # Two forms on one page (mirrors students.views.my_profile's pattern) - the
+    # submit button's name says which one was actually submitted.
+    if request.method == "POST" and "save_profile" in request.POST:
+        profile_form = StaffProfileForm(request.POST, instance=request.user)
+        username_form = PreferredUsernameForm(user=request.user)
+        if profile_form.is_valid():
+            profile_form.save()
+            messages.success(request, "Profile updated.")
+            return redirect("accounts:profile")
+    elif request.method == "POST":
+        username_form = PreferredUsernameForm(request.POST, user=request.user)
+        profile_form = StaffProfileForm(instance=request.user)
+        if username_form.is_valid():
+            request.user.preferred_username = username_form.cleaned_data["preferred_username"]
             request.user.preferred_username_changed_at = timezone.now()
             request.user.save(update_fields=["preferred_username", "preferred_username_changed_at"])
             messages.success(request, "Preferred username updated.")
             return redirect("accounts:profile")
     else:
-        form = PreferredUsernameForm(user=request.user)
+        profile_form = StaffProfileForm(instance=request.user)
+        username_form = PreferredUsernameForm(user=request.user)
 
-    return render(request, "accounts/profile.html", {"form": form})
+    return render(request, "accounts/profile.html", {"form": username_form, "profile_form": profile_form})
 
 
 def _filtered_staff_users(request):
@@ -268,6 +281,24 @@ class ForcedPasswordChangeView(auth_views.PasswordChangeView):
         response = super().form_valid(form)
         self.request.user.must_change_password = False
         self.request.user.save(update_fields=["must_change_password"])
+        messages.success(self.request, "Password changed.")
+        return response
+
+
+class SelfChangePasswordView(auth_views.PasswordChangeView):
+    """Voluntary change for someone already in good standing (must_change_password
+    is False, or the ForcePasswordChangeMiddleware would have already routed them
+    to accounts:change_password instead - see accounts/middleware.py).
+    """
+
+    template_name = "accounts/self_change_password.html"
+    form_class = SelfChangePasswordForm
+    success_url = reverse_lazy("accounts:profile")
+
+    def form_valid(self, form):
+        # PasswordChangeView.form_valid() already calls update_session_auth_hash,
+        # so the user stays logged in after this.
+        response = super().form_valid(form)
         messages.success(self.request, "Password changed.")
         return response
 

@@ -1,7 +1,12 @@
 import re
 
 from django import forms
-from django.contrib.auth.forms import AuthenticationForm, PasswordResetForm, SetPasswordForm
+from django.contrib.auth.forms import (
+    AuthenticationForm,
+    PasswordChangeForm,
+    PasswordResetForm,
+    SetPasswordForm,
+)
 from django.contrib.auth.models import Group
 from django.db.models import Q
 
@@ -40,6 +45,14 @@ class ForgotPasswordForm(BootstrapFormMixin, PasswordResetForm):
     pass
 
 
+class SelfChangePasswordForm(BootstrapFormMixin, PasswordChangeForm):
+    """Voluntary change, for someone who already knows their password - asks for
+    it, unlike ChangePasswordForm (SetPasswordForm) which is deliberately for the
+    two cases where identity was already proven another way (first-login PIN
+    verification, or a forgot-password email link) instead of via the old password.
+    """
+
+
 class ChangePasswordForm(BootstrapFormMixin, SetPasswordForm):
     """Sets a new password without asking for the old one.
 
@@ -54,6 +67,18 @@ class ChangePasswordForm(BootstrapFormMixin, SetPasswordForm):
     routes them through first - so this form itself no longer needs to know anything
     about PINs or student_profile at all.
     """
+
+
+class StaffProfileForm(BootstrapFormMixin, forms.ModelForm):
+    """Self-service personal info for staff - the analogue of students'
+    StudentProfileForm, but on User directly since staff have no separate
+    profile model.
+    """
+
+    class Meta:
+        model = User
+        fields = ["phone_number", "date_of_birth", "gender"]
+        widgets = {"date_of_birth": forms.DateInput(attrs={"type": "date"})}
 
 
 class PreferredUsernameForm(BootstrapFormMixin, forms.Form):

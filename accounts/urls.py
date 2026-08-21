@@ -18,6 +18,7 @@ urlpatterns = [
     ),
     path("logout/", auth_views.LogoutView.as_view(), name="logout"),
     path("change-password/", views.ForcedPasswordChangeView.as_view(), name="change_password"),
+    path("settings/change-password/", views.SelfChangePasswordView.as_view(), name="self_change_password"),
     path("verify-pin/", views.verify_pin, name="verify_pin"),
     path("verify-pin/send-code/", views.send_pin_code, name="send_pin_code"),
     path("forgot-password/", views.ForgotPasswordView.as_view(), name="forgot_password"),
