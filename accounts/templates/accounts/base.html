@@ -40,11 +40,24 @@
                     {% if user.is_dean %}
                         <a class="btn btn-outline-light btn-sm me-2" href="{% url 'courses:faculty_courses' %}">Faculty Courses</a>
                     {% endif %}
-                    <a class="btn btn-outline-light btn-sm me-2" href="{% if user.is_student %}{% url 'students:my_profile' %}{% else %}{% url 'accounts:profile' %}{% endif %}">My Profile</a>
-                    <form method="post" action="{% url 'accounts:logout' %}" class="d-inline">
-                        {% csrf_token %}
-                        <button type="submit" class="btn btn-outline-light btn-sm">Log out</button>
-                    </form>
+                    <div class="dropdown">
+                        <button class="btn btn-outline-light btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            Settings
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-end">
+                            <li>
+                                <a class="dropdown-item" href="{% if user.is_student %}{% url 'students:my_profile' %}{% else %}{% url 'accounts:profile' %}{% endif %}">My Profile</a>
+                            </li>
+                            <li><a class="dropdown-item" href="{% url 'accounts:change_password' %}">Change Password</a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li>
+                                <form method="post" action="{% url 'accounts:logout' %}">
+                                    {% csrf_token %}
+                                    <button type="submit" class="dropdown-item">Log out</button>
+                                </form>
+                            </li>
+                        </ul>
+                    </div>
                 {% else %}
                     <a class="btn btn-outline-light btn-sm" href="{% url 'login' %}">Log in</a>
                 {% endif %}
