@@ -562,6 +562,18 @@ class ProfilePageTests(TestCase):
         self.assertContains(response, 'name="save_profile"')
         self.assertContains(response, 'name="save_username"')
 
+    def test_view_page_has_no_change_email_link(self):
+        make_lecturer(username="viewnoemail1")
+        self.client.login(username="viewnoemail1", password="pass12345")
+        response = self.client.get(reverse("accounts:profile"))
+        self.assertNotContains(response, reverse("accounts:request_email_change"))
+
+    def test_edit_page_has_change_email_link(self):
+        make_lecturer(username="editemail1")
+        self.client.login(username="editemail1", password="pass12345")
+        response = self.client.get(reverse("accounts:profile_edit"))
+        self.assertContains(response, reverse("accounts:request_email_change"))
+
     def test_staff_can_update_personal_info(self):
         make_lecturer(username="staffpersonal1")
         self.client.login(username="staffpersonal1", password="pass12345")

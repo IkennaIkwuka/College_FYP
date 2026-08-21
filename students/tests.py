@@ -292,6 +292,14 @@ class MyProfileTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'name="save_username"')
 
+    def test_view_page_has_no_change_email_link(self):
+        response = self.client.get(reverse("students:my_profile"))
+        self.assertNotContains(response, reverse("accounts:request_email_change"))
+
+    def test_edit_page_has_change_email_link(self):
+        response = self.client.get(reverse("students:my_profile_edit"))
+        self.assertContains(response, reverse("accounts:request_email_change"))
+
     def test_can_update_personal_details(self):
         response = self.client.post(
             reverse("students:my_profile_edit"),
