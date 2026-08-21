@@ -17,3 +17,29 @@ From the 2026-08-21 project audit (SECRET_KEY/DEBUG/ALLOWED_HOSTS already fixed)
 - [ ] Email-existence enumeration oracle in RequestEmailChangeForm/StaffAccountForm/StudentAccountForm clean_email
 - [ ] Minor cleanup: unnecessary |safe on password help_text (3 templates), CSV bulk_import has no size/encoding guard, unused test vars in students/tests.py:248 and courses/tests.py:243
 - [ ] Course-code semester-parity rule (odd/even = 1st/2nd sem) has no confirmed NUC source - unverified project convention, not urgent
+
+Brainstormed features (2026-08-21), not yet scoped/prioritized:
+
+Core academic - fits FYP scope, builds on Results system once it lands:
+- [ ] Transcript generation (PDF) - once Results/CGPA exists
+- [ ] Course prerequisite enforcement at registration time
+- [ ] Add/drop deadline enforcement (registration window dates, not just CURRENT_SEMESTER flag)
+- [ ] Graduation-eligibility checker - units completed + CGPA + no outstanding carryover
+- [ ] Auto probation/warning flag from CGPA threshold - ties into Results
+
+Bursar/Fees - expands the already-planned module:
+- [ ] Fee schedule per department/level/session
+- [ ] Record payments + generate receipts (internal ledger, not a payment gateway)
+- [ ] Fee-clearance gate blocking registration on outstanding balance
+
+Admin/records:
+- [ ] Audit log - who changed what, on sensitive records (Registrar edits, staff force-reset, etc.)
+- [ ] Document upload per student (admission letter, credentials)
+- [ ] Dashboard stats for Admin/Dean - enrollment counts, department headcounts
+
+Stretch / likely out of FYP scope, noted for awareness:
+- [ ] Payment gateway integration (Paystack/Flutterwave)
+- [ ] SMS alerts alongside email (PIN/reset codes) - relevant since not everyone checks email
+- [ ] ID card generation with photo/QR
+- [ ] Timetable/class-schedule management
+- [ ] Session timeout / auto-logout for shared/cybercafe use
