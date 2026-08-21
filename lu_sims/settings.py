@@ -102,6 +102,10 @@ EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')
 EMAIL_USE_TLS = os.environ.get('EMAIL_USE_TLS', 'True') == 'True'
 DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'no-reply@lu-sims.local')
 
+# Forgot-password reset links expire after 1 hour - tighter than Django's 3-day
+# default, since the link is effectively a bearer credential for the account.
+PASSWORD_RESET_TIMEOUT = 3600
+
 # PIN policy for the first-login identity check (students.models.StudentProfile) - lock
 # the account out of retrying after this many wrong PIN attempts, for this long, to
 # resist brute-forcing a 6-digit PIN.

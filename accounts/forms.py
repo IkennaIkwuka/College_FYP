@@ -1,7 +1,7 @@
 import re
 
 from django import forms
-from django.contrib.auth.forms import AuthenticationForm, SetPasswordForm
+from django.contrib.auth.forms import AuthenticationForm, PasswordResetForm, SetPasswordForm
 from django.contrib.auth.models import Group
 from django.db.models import Q
 
@@ -33,6 +33,10 @@ class BootstrapFormMixin:
 
 
 class LoginForm(BootstrapFormMixin, AuthenticationForm):
+    pass
+
+
+class ForgotPasswordForm(BootstrapFormMixin, PasswordResetForm):
     pass
 
 

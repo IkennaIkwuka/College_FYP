@@ -25,6 +25,7 @@ from .decorators import (
 from .forms import (
     STAFF_GROUPS,
     ChangePasswordForm,
+    ForgotPasswordForm,
     LoginForm,
     PinVerificationForm,
     PreferredUsernameForm,
@@ -269,6 +270,38 @@ class ForcedPasswordChangeView(auth_views.PasswordChangeView):
         self.request.user.save(update_fields=["must_change_password"])
         messages.success(self.request, "Password changed.")
         return response
+
+
+class ForgotPasswordView(auth_views.PasswordResetView):
+    template_name = "accounts/forgot_password.html"
+    form_class = ForgotPasswordForm
+    email_template_name = "accounts/forgot_password_email.txt"
+    subject_template_name = "accounts/forgot_password_subject.txt"
+    success_url = reverse_lazy("accounts:forgot_password_done")
+
+
+class ForgotPasswordDoneView(auth_views.PasswordResetDoneView):
+    template_name = "accounts/forgot_password_done.html"
+
+
+class ForgotPasswordConfirmView(auth_views.PasswordResetConfirmView):
+    template_name = "accounts/forgot_password_confirm.html"
+    form_class = ChangePasswordForm
+    success_url = reverse_lazy("accounts:forgot_password_complete")
+
+    def form_valid(self, form):
+        # A completed reset already proves the user owns the email on file and
+        # gives them a real, self-chosen password - the same thing verify_pin +
+        # change_password prove together during a forced first login. Don't route
+        # them back through the PIN gate afterward.
+        response = super().form_valid(form)
+        form.user.must_change_password = False
+        form.user.save(update_fields=["must_change_password"])
+        return response
+
+
+class ForgotPasswordCompleteView(auth_views.PasswordResetCompleteView):
+    template_name = "accounts/forgot_password_complete.html"
 
 
 @login_required

@@ -20,4 +20,16 @@ urlpatterns = [
     path("change-password/", views.ForcedPasswordChangeView.as_view(), name="change_password"),
     path("verify-pin/", views.verify_pin, name="verify_pin"),
     path("verify-pin/send-code/", views.send_pin_code, name="send_pin_code"),
+    path("forgot-password/", views.ForgotPasswordView.as_view(), name="forgot_password"),
+    path("forgot-password/sent/", views.ForgotPasswordDoneView.as_view(), name="forgot_password_done"),
+    path(
+        "forgot-password/<uidb64>/<token>/",
+        views.ForgotPasswordConfirmView.as_view(),
+        name="forgot_password_confirm",
+    ),
+    path(
+        "forgot-password/complete/",
+        views.ForgotPasswordCompleteView.as_view(),
+        name="forgot_password_complete",
+    ),
 ]
