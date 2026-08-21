@@ -42,14 +42,16 @@
                     {% endif %}
                     <div class="dropdown">
                         <button
-                            class="btn btn-outline-light btn-sm dropdown-toggle rounded-circle d-inline-flex align-items-center justify-content-center p-0"
+                            class="btn btn-outline-light btn-sm dropdown-toggle d-inline-flex align-items-center"
                             type="button"
                             data-bs-toggle="dropdown"
                             aria-expanded="false"
                             aria-label="Settings"
-                            style="width: 2.5rem; height: 2.5rem;"
                         >
-                            <span class="fw-semibold">{{ user.initials }}</span>
+                            <span
+                                class="rounded-circle bg-light text-dark fw-semibold d-inline-flex align-items-center justify-content-center"
+                                style="width: 1.75rem; height: 1.75rem;"
+                            >{{ user.initials }}</span>
                         </button>
                         <ul class="dropdown-menu dropdown-menu-end">
                             <li>
