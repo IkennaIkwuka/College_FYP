@@ -111,6 +111,17 @@ class User(AbstractUser):
         return self.has_role(DEAN_GROUP)
 
     @property
+    def initials(self):
+        """One or two uppercase letters for the navbar avatar - first+last initial
+        when both are set, otherwise whichever single one is available.
+        """
+        if self.first_name and self.last_name:
+            return f"{self.first_name[0]}{self.last_name[0]}".upper()
+        if self.first_name:
+            return self.first_name[0].upper()
+        return self.username[0].upper()
+
+    @property
     def preferred_username_locked_until(self):
         if not self.preferred_username_changed_at:
             return None

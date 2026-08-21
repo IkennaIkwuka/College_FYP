@@ -41,8 +41,15 @@
                         <a class="btn btn-outline-light btn-sm me-2" href="{% url 'courses:faculty_courses' %}">Faculty Courses</a>
                     {% endif %}
                     <div class="dropdown">
-                        <button class="btn btn-outline-light btn-sm" type="button" data-bs-toggle="dropdown" aria-expanded="false">
-                            Settings
+                        <button
+                            class="btn btn-outline-light btn-sm dropdown-toggle rounded-circle d-inline-flex align-items-center justify-content-center p-0"
+                            type="button"
+                            data-bs-toggle="dropdown"
+                            aria-expanded="false"
+                            aria-label="Settings"
+                            style="width: 2.5rem; height: 2.5rem;"
+                        >
+                            <span class="fw-semibold">{{ user.initials }}</span>
                         </button>
                         <ul class="dropdown-menu dropdown-menu-end">
                             <li>

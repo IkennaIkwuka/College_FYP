@@ -103,7 +103,7 @@ class ForcedPasswordChangeTests(TestCase):
         return self.client.post(reverse("accounts:verify_pin"), {"pin": "123456"})
 
     def test_redirected_to_verify_pin(self):
-        response = self.client.get(reverse("dashboard"))
+        response = self.client.get(reverse("dashboard"), follow=True)
         self.assertRedirects(response, reverse("accounts:verify_pin"))
 
     def test_flag_clears_after_change(self):
@@ -591,6 +591,30 @@ class ProfilePageTests(TestCase):
         self.assertEqual(user.phone_number, "08012345678")
         self.assertEqual(str(user.date_of_birth), "1998-05-14")
         self.assertEqual(user.gender, "M")
+
+
+class NavbarSettingsMenuTests(TestCase):
+    def test_toggle_has_dropdown_caret(self):
+        make_lecturer(username="navcaret1")
+        self.client.login(username="navcaret1", password="pass12345")
+        response = self.client.get(reverse("dashboard"), follow=True)
+        self.assertContains(response, "dropdown-toggle")
+
+    def test_toggle_shows_initials_from_name(self):
+        user = User.objects.create_user(
+            username="navinit1", email="navinit1@example.com", password="pass12345",
+            first_name="Grace", last_name="Okafor",
+        )
+        user.groups.add(Group.objects.get(name=LECTURER_GROUP))
+        self.client.login(username="navinit1", password="pass12345")
+        response = self.client.get(reverse("dashboard"), follow=True)
+        self.assertContains(response, ">GO<")
+
+    def test_toggle_falls_back_to_username_initial_without_a_name(self):
+        make_lecturer(username="navinit2")
+        self.client.login(username="navinit2", password="pass12345")
+        response = self.client.get(reverse("dashboard"), follow=True)
+        self.assertContains(response, ">N<")
 
 
 class PreferredUsernameLockedUntilTests(TestCase):
