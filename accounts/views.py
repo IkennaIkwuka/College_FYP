@@ -56,7 +56,15 @@ def profile(request):
     if request.user.is_student:
         return redirect("students:my_profile")
 
-    # Two forms on one page (mirrors students.views.my_profile's pattern) - the
+    return render(request, "accounts/profile.html")
+
+
+@login_required
+def profile_edit(request):
+    if request.user.is_student:
+        return redirect("students:my_profile_edit")
+
+    # Two forms on one page (mirrors students.views.my_profile_edit's pattern) - the
     # submit button's name says which one was actually submitted.
     if request.method == "POST" and "save_profile" in request.POST:
         profile_form = StaffProfileForm(request.POST, instance=request.user)
@@ -78,7 +86,7 @@ def profile(request):
         profile_form = StaffProfileForm(instance=request.user)
         username_form = PreferredUsernameForm(user=request.user)
 
-    return render(request, "accounts/profile.html", {"form": username_form, "profile_form": profile_form})
+    return render(request, "accounts/profile_edit.html", {"form": username_form, "profile_form": profile_form})
 
 
 @login_required

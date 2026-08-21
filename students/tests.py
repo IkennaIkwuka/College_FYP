@@ -282,9 +282,19 @@ class MyProfileTests(TestCase):
         self.assertContains(response, "2023/CSC/091")
         self.assertContains(response, "Computer Science")
 
+    def test_profile_page_is_view_only(self):
+        response = self.client.get(reverse("students:my_profile"))
+        self.assertNotContains(response, 'name="save_username"')
+        self.assertContains(response, reverse("students:my_profile_edit"))
+
+    def test_edit_page_has_the_editable_forms(self):
+        response = self.client.get(reverse("students:my_profile_edit"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'name="save_username"')
+
     def test_can_update_personal_details(self):
         response = self.client.post(
-            reverse("students:my_profile"),
+            reverse("students:my_profile_edit"),
             {"date_of_birth": "2000-01-01", "gender": "M", "phone_number": "08012345678", "address": "Okija"},
         )
         self.assertRedirects(response, reverse("students:my_profile"))
@@ -299,7 +309,7 @@ class MyProfileTests(TestCase):
 
     def test_can_set_preferred_username_without_touching_personal_details(self):
         response = self.client.post(
-            reverse("students:my_profile"),
+            reverse("students:my_profile_edit"),
             {"preferred_username": "chidi_n", "save_username": "1"},
         )
         self.assertRedirects(response, reverse("students:my_profile"))
@@ -314,7 +324,7 @@ class MyProfileTests(TestCase):
         self.profile.user.save(update_fields=["preferred_username", "preferred_username_changed_at"])
 
         response = self.client.post(
-            reverse("students:my_profile"),
+            reverse("students:my_profile_edit"),
             {"date_of_birth": "2000-01-01", "gender": "M", "phone_number": "08012345678", "address": "Okija"},
         )
         self.assertRedirects(response, reverse("students:my_profile"))

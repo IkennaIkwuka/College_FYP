@@ -546,11 +546,27 @@ class ProfilePageTests(TestCase):
         response = self.client.get(reverse("accounts:profile"))
         self.assertRedirects(response, reverse("students:my_profile"))
 
+    def test_profile_page_is_view_only(self):
+        make_lecturer(username="viewonly1")
+        self.client.login(username="viewonly1", password="pass12345")
+        response = self.client.get(reverse("accounts:profile"))
+        self.assertNotContains(response, 'name="save_profile"')
+        self.assertNotContains(response, 'name="save_username"')
+        self.assertContains(response, reverse("accounts:profile_edit"))
+
+    def test_edit_page_has_the_editable_forms(self):
+        make_lecturer(username="editpage1")
+        self.client.login(username="editpage1", password="pass12345")
+        response = self.client.get(reverse("accounts:profile_edit"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'name="save_profile"')
+        self.assertContains(response, 'name="save_username"')
+
     def test_staff_can_update_personal_info(self):
         make_lecturer(username="staffpersonal1")
         self.client.login(username="staffpersonal1", password="pass12345")
         response = self.client.post(
-            reverse("accounts:profile"),
+            reverse("accounts:profile_edit"),
             {
                 "save_profile": "1",
                 "phone_number": "08012345678",
@@ -648,7 +664,7 @@ class PreferredUsernameViewTests(TestCase):
     def test_staff_can_set_preferred_username(self):
         make_hod(username="puview1")
         self.client.login(username="puview1", password="pass12345")
-        response = self.client.post(reverse("accounts:profile"), {"preferred_username": "hodada"})
+        response = self.client.post(reverse("accounts:profile_edit"), {"preferred_username": "hodada"})
         self.assertRedirects(response, reverse("accounts:profile"))
         user = User.objects.get(username="puview1")
         self.assertEqual(user.preferred_username, "hodada")
@@ -656,8 +672,8 @@ class PreferredUsernameViewTests(TestCase):
     def test_second_change_within_cooldown_is_rejected(self):
         make_hod(username="puview2")
         self.client.login(username="puview2", password="pass12345")
-        self.client.post(reverse("accounts:profile"), {"preferred_username": "firstpick"})
-        response = self.client.post(reverse("accounts:profile"), {"preferred_username": "secondpick"})
+        self.client.post(reverse("accounts:profile_edit"), {"preferred_username": "firstpick"})
+        response = self.client.post(reverse("accounts:profile_edit"), {"preferred_username": "secondpick"})
         self.assertEqual(response.status_code, 200)
         user = User.objects.get(username="puview2")
         self.assertEqual(user.preferred_username, "firstpick")

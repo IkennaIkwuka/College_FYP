@@ -387,6 +387,12 @@ def student_edit(request, pk):
 @student_required
 def my_profile(request):
     profile = request.user.student_profile
+    return render(request, "students/my_profile.html", {"profile": profile})
+
+
+@student_required
+def my_profile_edit(request):
+    profile = request.user.student_profile
 
     if request.method == "POST" and "save_username" in request.POST:
         username_form = PreferredUsernameForm(request.POST, user=request.user)
@@ -410,6 +416,6 @@ def my_profile(request):
 
     return render(
         request,
-        "students/my_profile.html",
+        "students/my_profile_edit.html",
         {"form": profile_form, "username_form": username_form, "profile": profile},
     )
