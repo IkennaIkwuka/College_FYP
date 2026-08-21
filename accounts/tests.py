@@ -546,6 +546,24 @@ class ProfilePageTests(TestCase):
         response = self.client.get(reverse("accounts:profile"))
         self.assertRedirects(response, reverse("students:my_profile"))
 
+    def test_staff_can_update_personal_info(self):
+        make_lecturer(username="staffpersonal1")
+        self.client.login(username="staffpersonal1", password="pass12345")
+        response = self.client.post(
+            reverse("accounts:profile"),
+            {
+                "save_profile": "1",
+                "phone_number": "08012345678",
+                "date_of_birth": "1998-05-14",
+                "gender": "M",
+            },
+        )
+        self.assertRedirects(response, reverse("accounts:profile"))
+        user = User.objects.get(username="staffpersonal1")
+        self.assertEqual(user.phone_number, "08012345678")
+        self.assertEqual(str(user.date_of_birth), "1998-05-14")
+        self.assertEqual(user.gender, "M")
+
 
 class PreferredUsernameLockedUntilTests(TestCase):
     def test_none_when_never_changed(self):
@@ -839,3 +857,157 @@ class PinVerificationTests(TestCase):
         )
         staff.refresh_from_db()
         self.assertFalse(staff.must_change_password)
+
+
+class ForgotPasswordTests(TestCase):
+    def setUp(self):
+        self.user = make_lecturer(username="forgotpw1")
+
+    def _request(self, email):
+        return self.client.post(reverse("accounts:forgot_password"), {"email": email}, follow=True)
+
+    def test_request_sends_reset_email_to_registered_user(self):
+        response = self._request(self.user.email)
+        self.assertRedirects(response, reverse("accounts:forgot_password_done"))
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertIn(self.user.email, mail.outbox[0].to)
+
+    def test_request_with_unregistered_email_gives_same_response_and_sends_nothing(self):
+        response = self._request("nobody@example.com")
+        self.assertRedirects(response, reverse("accounts:forgot_password_done"))
+        self.assertEqual(len(mail.outbox), 0)
+
+    def test_reset_link_allows_setting_new_password_and_logs_in(self):
+        self._request(self.user.email)
+        match = re.search(r"(/accounts/forgot-password/\S+/\S+/)", mail.outbox[0].body)
+        reset_url = match.group(1)
+
+        response = self.client.get(reset_url, follow=True)
+        set_password_url = response.redirect_chain[-1][0]
+        response = self.client.post(
+            set_password_url,
+            {"new_password1": "N3wPassw0rd!", "new_password2": "N3wPassw0rd!"},
+            follow=True,
+        )
+        self.assertRedirects(response, reverse("accounts:forgot_password_complete"))
+
+        self.client.logout()
+        self.assertTrue(self.client.login(username=self.user.username, password="N3wPassw0rd!"))
+
+    def test_reset_clears_must_change_password_flag(self):
+        self.user.must_change_password = True
+        self.user.save(update_fields=["must_change_password"])
+
+        self._request(self.user.email)
+        match = re.search(r"(/accounts/forgot-password/\S+/\S+/)", mail.outbox[0].body)
+        response = self.client.get(match.group(1), follow=True)
+        set_password_url = response.redirect_chain[-1][0]
+        self.client.post(
+            set_password_url,
+            {"new_password1": "N3wPassw0rd!", "new_password2": "N3wPassw0rd!"},
+        )
+
+        self.user.refresh_from_db()
+        self.assertFalse(self.user.must_change_password)
+
+
+class SelfChangePasswordTests(TestCase):
+    def setUp(self):
+        self.user = make_lecturer(username="selfchpw1")
+        self.client.login(username="selfchpw1", password="pass12345")
+
+    def _change(self, old_password, new_password="N3wPassw0rd!"):
+        return self.client.post(
+            reverse("accounts:self_change_password"),
+            {"old_password": old_password, "new_password1": new_password, "new_password2": new_password},
+        )
+
+    def test_wrong_current_password_rejected(self):
+        response = self._change("wrongpassword")
+        self.assertContains(response, "old password")
+        self.assertTrue(self.client.login(username="selfchpw1", password="pass12345"))
+
+    def test_correct_current_password_changes_password_and_stays_logged_in(self):
+        response = self._change("pass12345")
+        self.assertRedirects(response, reverse("accounts:profile"))
+        # update_session_auth_hash means the session survives the password change -
+        # a follow-up request should still be authenticated, not bounced to login.
+        response = self.client.get(reverse("accounts:profile"))
+        self.assertEqual(response.status_code, 200)
+        self.client.logout()
+        self.assertTrue(self.client.login(username="selfchpw1", password="N3wPassw0rd!"))
+
+    def test_forced_change_password_view_has_no_old_password_field(self):
+        # Regression check - accounts:change_password (first-login/admin-forced
+        # reset, and forgot-password's confirm step) must stay untouched by the
+        # self-service form added alongside it.
+        response = self.client.get(reverse("accounts:change_password"))
+        self.assertNotContains(response, 'name="old_password"')
+
+
+class EmailChangeTests(TestCase):
+    def setUp(self):
+        self.user = make_lecturer(username="emailchg1")
+        self.client.login(username="emailchg1", password="pass12345")
+
+    def _request_change(self, new_email="new.address@example.com"):
+        response = self.client.post(reverse("accounts:request_email_change"), {"new_email": new_email})
+        match = re.search(r"Code: (\d{6})", mail.outbox[-1].body)
+        return response, match.group(1)
+
+    def _confirm(self, code):
+        return self.client.post(reverse("accounts:confirm_email_change"), {"code": code})
+
+    def test_request_change_emails_code_to_new_address_only(self):
+        self._request_change("new.address@example.com")
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.pending_email, "new.address@example.com")
+        self.assertNotEqual(self.user.email, "new.address@example.com")
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(mail.outbox[0].to, ["new.address@example.com"])
+
+    def test_correct_code_updates_email_and_notifies_old_address(self):
+        old_email = self.user.email
+        _, code = self._request_change("new.address@example.com")
+        response = self._confirm(code)
+        self.assertRedirects(response, reverse("accounts:profile"))
+
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.email, "new.address@example.com")
+        self.assertEqual(self.user.pending_email, "")
+        self.assertIsNotNone(self.user.email_changed_at)
+
+        # Second email is the old-address notice.
+        self.assertEqual(len(mail.outbox), 2)
+        self.assertEqual(mail.outbox[1].to, [old_email])
+
+    def test_wrong_code_rejected(self):
+        self._request_change("new.address@example.com")
+        response = self._confirm("000000")
+        self.assertContains(response, "Incorrect code")
+        self.user.refresh_from_db()
+        self.assertNotEqual(self.user.email, "new.address@example.com")
+
+    def test_lockout_after_max_attempts(self):
+        _, code = self._request_change("new.address@example.com")
+        for _ in range(settings.EMAIL_CHANGE_CODE_MAX_ATTEMPTS):
+            self._confirm("000000")
+        self.user.refresh_from_db()
+        self.assertTrue(self.user.is_email_change_locked)
+
+        # Even the correct code is rejected once locked.
+        response = self._confirm(code)
+        self.assertContains(response, "Too many wrong attempts")
+        self.user.refresh_from_db()
+        self.assertNotEqual(self.user.email, "new.address@example.com")
+
+    def test_cooldown_blocks_second_change(self):
+        _, code = self._request_change("new.address@example.com")
+        self._confirm(code)
+
+        response = self.client.post(
+            reverse("accounts:request_email_change"), {"new_email": "another@example.com"}
+        )
+        self.assertContains(response, "change your email again on")
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.email, "new.address@example.com")
