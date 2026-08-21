@@ -55,6 +55,13 @@ class StudentProfileForm(BootstrapFormMixin, forms.ModelForm):
 
 
 class StudentEditForm(BootstrapFormMixin, forms.ModelForm):
+    # Not part of StudentProfile - these live on the related User instead, so they
+    # can't come from Meta.fields like the rest. __init__/save() below wire them to
+    # profile.user, matching how StudentAccountForm (creation) already asks for them.
+    first_name = forms.CharField(max_length=150)
+    last_name = forms.CharField(max_length=150)
+    email = forms.EmailField()
+
     class Meta:
         model = StudentProfile
         fields = [
@@ -69,6 +76,19 @@ class StudentEditForm(BootstrapFormMixin, forms.ModelForm):
         ]
         widgets = {"date_of_birth": forms.DateInput(attrs={"type": "date"})}
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.instance.pk:
+            self.fields["first_name"].initial = self.instance.user.first_name
+            self.fields["last_name"].initial = self.instance.user.last_name
+            self.fields["email"].initial = self.instance.user.email
+        # Purely cosmetic - puts identity fields first instead of wherever Django's
+        # ModelForm machinery would otherwise append declared-but-not-in-Meta fields.
+        self.order_fields(
+            ["first_name", "last_name", "email", "matric_number", "department",
+             "entry_level", "admission_type", "date_of_birth", "gender", "phone_number", "address"]
+        )
+
     def clean_matric_number(self):
         try:
             matric_number = format_academic_id(self.cleaned_data["matric_number"])
@@ -77,3 +97,19 @@ class StudentEditForm(BootstrapFormMixin, forms.ModelForm):
         if StudentProfile.objects.exclude(pk=self.instance.pk).filter(matric_number=matric_number).exists():
             raise forms.ValidationError("A student with this matric number already exists.")
         return matric_number
+
+    def clean_email(self):
+        email = self.cleaned_data["email"].strip().lower()
+        if User.objects.exclude(pk=self.instance.user_id).filter(email__iexact=email).exists():
+            raise forms.ValidationError("A user with this email already exists.")
+        return email
+
+    def save(self, commit=True):
+        profile = super().save(commit=False)
+        profile.user.first_name = self.cleaned_data["first_name"]
+        profile.user.last_name = self.cleaned_data["last_name"]
+        profile.user.email = self.cleaned_data["email"]
+        if commit:
+            profile.user.save(update_fields=["first_name", "last_name", "email"])
+            profile.save()
+        return profile

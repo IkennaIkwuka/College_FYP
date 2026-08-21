@@ -385,6 +385,9 @@ class ManageStudentsTests(TestCase):
         response = self.client.post(
             reverse("students:student_edit", args=[self.profile.id]),
             {
+                "first_name": self.profile.user.first_name,
+                "last_name": self.profile.user.last_name,
+                "email": self.profile.user.email,
                 "matric_number": "2023/CSC/095",
                 "department": self.department.id,
                 "entry_level": 200,
@@ -399,11 +402,37 @@ class ManageStudentsTests(TestCase):
         self.profile.refresh_from_db()
         self.assertEqual(self.profile.phone_number, "08011112222")
 
+    def test_registrar_can_edit_student_name_and_email(self):
+        response = self.client.post(
+            reverse("students:student_edit", args=[self.profile.id]),
+            {
+                "first_name": "Updated",
+                "last_name": "Name",
+                "email": "updated.name@example.com",
+                "matric_number": self.profile.matric_number,
+                "department": self.department.id,
+                "entry_level": 200,
+                "admission_type": "UTME",
+                "date_of_birth": "",
+                "gender": "",
+                "phone_number": "",
+                "address": "",
+            },
+        )
+        self.assertRedirects(response, reverse("students:manage_students"))
+        self.profile.refresh_from_db()
+        self.assertEqual(self.profile.user.first_name, "Updated")
+        self.assertEqual(self.profile.user.last_name, "Name")
+        self.assertEqual(self.profile.user.email, "updated.name@example.com")
+
     def test_editing_matric_number_updates_username(self):
         old_username = self.profile.user.username
         response = self.client.post(
             reverse("students:student_edit", args=[self.profile.id]),
             {
+                "first_name": self.profile.user.first_name,
+                "last_name": self.profile.user.last_name,
+                "email": self.profile.user.email,
                 "matric_number": "2023/CSC/199",
                 "department": self.department.id,
                 "entry_level": 200,
@@ -425,6 +454,9 @@ class ManageStudentsTests(TestCase):
         response = self.client.post(
             reverse("students:student_edit", args=[self.profile.id]),
             {
+                "first_name": self.profile.user.first_name,
+                "last_name": self.profile.user.last_name,
+                "email": self.profile.user.email,
                 "matric_number": self.profile.matric_number,
                 "department": self.department.id,
                 "entry_level": 200,
