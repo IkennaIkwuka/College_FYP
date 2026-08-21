@@ -6,8 +6,3 @@
 - [ ] Carryover-student handling (depends on Results system above) - no tracking of failed/repeated courses, no NUC max-duration (~1.5x programme length) withdrawal enforcement
 - [ ] Staff qualification tracking - no field records highest qualification, so HOD/Dean appointments can't be checked against NUC's practical PhD expectation
 - [ ] Superuser vs IT Admin identity/dashboard separation - deferred mid-discussion, never decided between a label-only fix and a fully separate dashboard
-
-
-#explain  modes
-#run audit loop
-#ask wheter skills can be ran automatically
