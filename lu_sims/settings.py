@@ -26,12 +26,18 @@ load_dotenv(BASE_DIR / '.env')
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-txl2yz#4y0)di(3ug_n$%oosait2_ep(3*jbq)t$lptg1t29=e'
+# Falls back to the original insecure dev key so local runserver/tests need no .env -
+# a real deployment must set SECRET_KEY in .env (see .env.example).
+SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-txl2yz#4y0)di(3ug_n$%oosait2_ep(3*jbq)t$lptg1t29=e')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+# Defaults to True (unchanged local-dev behavior with no .env) - a real deployment
+# must set DEBUG=False in .env.
+DEBUG = os.environ.get('DEBUG', 'True') == 'True'
 
-ALLOWED_HOSTS = []
+# Comma-separated in .env, e.g. ALLOWED_HOSTS=lu-sims.example.com,www.lu-sims.example.com.
+# Empty is fine for local dev - Django auto-allows localhost/127.0.0.1 while DEBUG=True.
+ALLOWED_HOSTS = [h.strip() for h in os.environ.get('ALLOWED_HOSTS', '').split(',') if h.strip()]
 
 
 # Application definition
@@ -167,6 +173,17 @@ DATABASES = {
         'NAME': BASE_DIR / 'db.sqlite3',
     }
 }
+
+# HTTPS/cookie hardening - gated behind "not DEBUG" rather than applied unconditionally,
+# since forcing SSL redirects and secure-only cookies would break plain-HTTP local
+# runserver. Only takes effect once a real deployment sets DEBUG=False in .env.
+if not DEBUG:
+    SECURE_SSL_REDIRECT = True
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    SECURE_HSTS_SECONDS = 31536000
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
 
 
 # Password validation
