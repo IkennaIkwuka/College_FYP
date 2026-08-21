@@ -73,7 +73,12 @@ UNIVERSITY_ABBREVIATION = 'LU'
 
 # How often someone can change their self-service preferred_username (accounts.models.
 # User.preferred_username_locked_until).
-PREFERRED_USERNAME_COOLDOWN_DAYS = 30
+PREFERRED_USERNAME_COOLDOWN_DAYS = 7
+
+# How often someone can change their login email (accounts.models.User.email_locked_until) -
+# a separate named setting from PREFERRED_USERNAME_COOLDOWN_DAYS even though currently
+# equal, so the two can be tuned independently later.
+EMAIL_CHANGE_COOLDOWN_DAYS = 7
 
 # Academic session students register courses under. Bump this every academic year,
 # e.g. '2026/2027' for the next intake.
@@ -111,6 +116,12 @@ PASSWORD_RESET_TIMEOUT = 3600
 # resist brute-forcing a 6-digit PIN.
 PIN_MAX_ATTEMPTS = 5
 PIN_LOCKOUT_MINUTES = 15
+
+# Same lockout policy, for the email-change verification code (accounts.models.User) -
+# same values as PIN_MAX_ATTEMPTS/PIN_LOCKOUT_MINUTES, kept as its own setting since
+# accounts can't import the students-side one (see accounts.models.User docstring).
+EMAIL_CHANGE_CODE_MAX_ATTEMPTS = 5
+EMAIL_CHANGE_CODE_LOCKOUT_MINUTES = 15
 
 MESSAGE_TAGS = {
     messages.ERROR: 'danger',

@@ -1,0 +1,39 @@
+{% extends "accounts/base.html" %}
+
+{% block title %}Confirm Email - LU-SIMS{% endblock %}
+
+{% block content %}
+    <div class="row justify-content-center">
+        <div class="col-12 col-md-6 col-lg-4">
+            <div class="card shadow-sm mt-4">
+                <div class="card-body p-4">
+                    <h1 class="h3 mb-3 text-center">Confirm Your New Email</h1>
+                    <p class="text-muted text-center small">
+                        Enter the code sent to <strong>{{ user.pending_email }}</strong>.
+                    </p>
+
+                    <form method="post" action="{% url 'accounts:resend_email_change_code' %}" class="mb-3">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-outline-secondary btn-sm">Resend code</button>
+                    </form>
+
+                    {% if form.non_field_errors %}
+                        <div class="alert alert-danger">{{ form.non_field_errors }}</div>
+                    {% endif %}
+
+                    <form method="post">
+                        {% csrf_token %}
+                        <div class="mb-3">
+                            <label for="{{ form.code.id_for_label }}" class="form-label">Verification code</label>
+                            {{ form.code }}
+                            {% for error in form.code.errors %}
+                                <div class="text-danger small">{{ error }}</div>
+                            {% endfor %}
+                        </div>
+                        <button type="submit" class="btn btn-primary w-100">Confirm</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock %}

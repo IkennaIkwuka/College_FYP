@@ -2,6 +2,7 @@ from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth import views as auth_views
 from django.contrib.auth.decorators import login_required
+from django.contrib.auth.hashers import make_password
 from django.contrib.auth.models import Group
 from django.core.exceptions import PermissionDenied
 from django.core.paginator import Paginator
@@ -25,17 +26,26 @@ from .decorators import (
 from .forms import (
     STAFF_GROUPS,
     ChangePasswordForm,
+    EmailChangeCodeForm,
     ForgotPasswordForm,
     LoginForm,
     PinVerificationForm,
     PreferredUsernameForm,
+    RequestEmailChangeForm,
     SelfChangePasswordForm,
     StaffAccountForm,
     StaffEditForm,
     StaffProfileForm,
 )
 from .models import User
-from .services import assign_staff_identity, force_password_reset, generate_staff_id
+from .services import (
+    assign_staff_identity,
+    force_password_reset,
+    generate_code,
+    generate_staff_id,
+    send_email_change_code,
+    send_email_change_notice,
+)
 
 
 @login_required
@@ -69,6 +79,74 @@ def profile(request):
         username_form = PreferredUsernameForm(user=request.user)
 
     return render(request, "accounts/profile.html", {"form": username_form, "profile_form": profile_form})
+
+
+@login_required
+def request_email_change(request):
+    if request.method == "POST":
+        form = RequestEmailChangeForm(request.POST, user=request.user)
+        if form.is_valid():
+            raw_code = generate_code()
+            request.user.pending_email = form.cleaned_data["new_email"]
+            request.user.email_change_code_hash = make_password(raw_code)
+            request.user.save(update_fields=["pending_email", "email_change_code_hash"])
+            try:
+                send_email_change_code(request.user, raw_code)
+                messages.success(request, f"Code sent to {request.user.pending_email}.")
+            except Exception:
+                messages.warning(
+                    request, f"Could not send the code to {request.user.pending_email}. Try again shortly."
+                )
+            return redirect("accounts:confirm_email_change")
+    else:
+        form = RequestEmailChangeForm(user=request.user)
+
+    return render(request, "accounts/request_email_change.html", {"form": form})
+
+
+@login_required
+def confirm_email_change(request):
+    if not request.user.pending_email:
+        return redirect("accounts:request_email_change")
+
+    if request.method == "POST":
+        form = EmailChangeCodeForm(request.POST, user=request.user)
+        if form.is_valid():
+            old_email = request.user.email
+            request.user.email = request.user.pending_email
+            request.user.pending_email = ""
+            request.user.email_change_code_hash = ""
+            request.user.email_changed_at = timezone.now()
+            request.user.save(update_fields=["email", "pending_email", "email_change_code_hash", "email_changed_at"])
+            try:
+                send_email_change_notice(request.user, old_email)
+            except Exception:
+                pass  # best-effort - the actual change already succeeded
+            messages.success(request, "Email updated.")
+            return redirect("accounts:profile")
+    else:
+        form = EmailChangeCodeForm(user=request.user)
+
+    return render(request, "accounts/confirm_email_change.html", {"form": form})
+
+
+@login_required
+def resend_email_change_code(request):
+    if not request.user.pending_email:
+        return redirect("accounts:request_email_change")
+
+    if request.method == "POST":
+        raw_code = generate_code()
+        request.user.email_change_code_hash = make_password(raw_code)
+        request.user.save(update_fields=["email_change_code_hash"])
+        try:
+            send_email_change_code(request.user, raw_code)
+            messages.success(request, f"Code sent to {request.user.pending_email}.")
+        except Exception:
+            messages.warning(
+                request, f"Could not send the code to {request.user.pending_email}. Try again shortly."
+            )
+    return redirect("accounts:confirm_email_change")
 
 
 def _filtered_staff_users(request):

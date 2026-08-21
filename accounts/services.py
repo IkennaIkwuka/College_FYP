@@ -1,6 +1,8 @@
 import re
+import secrets
 
 from django.conf import settings
+from django.core.mail import send_mail
 from django.db import transaction
 from django.utils import timezone
 
@@ -49,3 +51,39 @@ def force_password_reset(user):
     user.set_password(settings.DEFAULT_PASSWORD)
     user.must_change_password = True
     user.save(update_fields=["password", "must_change_password"])
+
+
+def generate_code(digits=6):
+    """Cryptographically-random numeric code, zero-padded, e.g. '004821'.
+
+    Same body as students.services.generate_pin - can't import it (accounts can't
+    depend on students, see accounts.models.User's email-change fields docstring).
+    """
+    return f"{secrets.randbelow(10 ** digits):0{digits}d}"
+
+
+def send_email_change_code(user, raw_code):
+    send_mail(
+        subject="Confirm your new LU-SIMS email",
+        message=(
+            f"Code: {raw_code}\n\n"
+            "Enter this code to confirm this is your new LU-SIMS login email. "
+            "If you didn't request this, you can ignore this message - your "
+            "email won't change."
+        ),
+        from_email=None,
+        recipient_list=[user.pending_email],
+    )
+
+
+def send_email_change_notice(user, old_email):
+    send_mail(
+        subject="Your LU-SIMS login email was changed",
+        message=(
+            f"Your LU-SIMS account's login email was changed to {user.email}.\n\n"
+            "If this wasn't you, contact IT Admin or the Registrar's office "
+            "immediately."
+        ),
+        from_email=None,
+        recipient_list=[old_email],
+    )

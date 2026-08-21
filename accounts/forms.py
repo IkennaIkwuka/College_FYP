@@ -138,6 +138,76 @@ class PreferredUsernameForm(BootstrapFormMixin, forms.Form):
         return cleaned_data
 
 
+class RequestEmailChangeForm(BootstrapFormMixin, forms.Form):
+    """Step 1 of self-service email change - takes the acting user as an explicit
+    kwarg (like PreferredUsernameForm) to check the cooldown and reject a no-op change.
+    """
+
+    new_email = forms.EmailField(label="New email")
+
+    def __init__(self, *args, user, **kwargs):
+        self.user = user
+        super().__init__(*args, **kwargs)
+
+    def clean_new_email(self):
+        email = self.cleaned_data["new_email"].strip().lower()
+        if email == self.user.email:
+            raise forms.ValidationError("That's already your current email.")
+        if User.objects.exclude(pk=self.user.pk).filter(email__iexact=email).exists():
+            raise forms.ValidationError("A user with this email already exists.")
+        return email
+
+    def clean(self):
+        cleaned_data = super().clean()
+        locked_until = self.user.email_locked_until
+        if locked_until:
+            raise forms.ValidationError(
+                f"You can change your email again on {locked_until:%Y-%m-%d}."
+            )
+        return cleaned_data
+
+
+class EmailChangeCodeForm(BootstrapFormMixin, forms.Form):
+    """Step 2 of self-service email change - verifies the code sent to the new
+    address. Same lockout/attempt shape as PinVerificationForm below, operating on
+    the User's email_change_* fields instead of a StudentProfile's PIN fields.
+    """
+
+    code = forms.CharField(
+        max_length=6,
+        label="Verification code",
+        widget=forms.TextInput(attrs={"placeholder": "000000", "inputmode": "numeric", "autocomplete": "one-time-code"}),
+    )
+
+    def __init__(self, *args, user, **kwargs):
+        self.user = user
+        super().__init__(*args, **kwargs)
+
+    def clean_code(self):
+        code = self.cleaned_data["code"]
+        user = self.user
+
+        # Lazily clear an expired lockout - no cron/Celery needed, the next attempt
+        # after the cooldown passes just resets the counter right here.
+        if user.email_change_locked_until is not None and not user.is_email_change_locked:
+            user.reset_email_change_attempts()
+
+        if user.is_email_change_locked:
+            raise forms.ValidationError("Too many wrong attempts. Try again later.")
+
+        if not user.email_change_code_hash:
+            raise forms.ValidationError('No code has been sent yet - click "Send code" first.')
+
+        if not user.check_email_change_code(code):
+            user.register_failed_email_change_attempt()
+            if user.is_email_change_locked:
+                raise forms.ValidationError("Too many wrong attempts. Try again later.")
+            raise forms.ValidationError("Incorrect code.")
+
+        user.reset_email_change_attempts()
+        return code
+
+
 class PinVerificationForm(BootstrapFormMixin, forms.Form):
     """First-login gate for students, ahead of ChangePasswordForm.
 

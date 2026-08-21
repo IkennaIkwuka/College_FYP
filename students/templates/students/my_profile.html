@@ -10,7 +10,19 @@
             <h2 class="h5">Account Details</h2>
             <table class="table table-sm w-auto">
                 <tr><th>Name</th><td>{{ user.get_full_name|default:user.username }}</td></tr>
-                <tr><th>Email</th><td>{{ user.email }}</td></tr>
+                <tr>
+                    <th>Email</th>
+                    <td>
+                        {{ user.email }}
+                        {% if user.pending_email %}
+                            <span class="text-muted small">(confirmation pending for {{ user.pending_email }} - <a href="{% url 'accounts:confirm_email_change' %}">enter code</a>)</span>
+                        {% elif user.email_locked_until %}
+                            <span class="text-muted small">(can change again on {{ user.email_locked_until|date:"Y-m-d" }})</span>
+                        {% else %}
+                            <a href="{% url 'accounts:request_email_change' %}" class="small">Change</a>
+                        {% endif %}
+                    </td>
+                </tr>
                 <tr><th>Username</th><td>{{ user.username }}</td></tr>
                 <tr><th>Date joined</th><td>{{ user.date_joined|date:"Y-m-d" }}</td></tr>
                 <tr><th>Last login</th><td>{{ user.last_login|date:"Y-m-d H:i"|default:"Never" }}</td></tr>

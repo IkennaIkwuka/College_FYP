@@ -1,6 +1,7 @@
 from datetime import timedelta
 
 from django.conf import settings
+from django.contrib.auth.hashers import check_password
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 from django.utils import timezone
@@ -59,6 +60,18 @@ class User(AbstractUser):
     phone_number = models.CharField(max_length=20, blank=True)
     date_of_birth = models.DateField(null=True, blank=True)
     gender = models.CharField(max_length=1, choices=GENDER_CHOICES, blank=True)
+    # Self-service email change, verified with a code sent to the new address (not the
+    # old one - the point is confirming the new address is real and reachable) before it
+    # takes effect. Same hashing/lockout shape as StudentProfile's first-login PIN
+    # (students/models.py) - independently defined rather than imported, same reason as
+    # GENDER_CHOICES above: accounts can't depend on students.
+    pending_email = models.EmailField(blank=True, default="")
+    email_change_code_hash = models.CharField(max_length=128, blank=True, default="")
+    email_change_attempts = models.PositiveSmallIntegerField(default=0)
+    email_change_locked_until = models.DateTimeField(null=True, blank=True)
+    # When the email last actually changed - cooldown timestamp, same role as
+    # preferred_username_changed_at above.
+    email_changed_at = models.DateTimeField(null=True, blank=True)
 
     def __str__(self):
         # AbstractUser's default falls back to username, which is a stripped-down
@@ -103,6 +116,31 @@ class User(AbstractUser):
             return None
         unlock = self.preferred_username_changed_at + timedelta(days=settings.PREFERRED_USERNAME_COOLDOWN_DAYS)
         return unlock if unlock > timezone.now() else None
+
+    @property
+    def email_locked_until(self):
+        if not self.email_changed_at:
+            return None
+        unlock = self.email_changed_at + timedelta(days=settings.EMAIL_CHANGE_COOLDOWN_DAYS)
+        return unlock if unlock > timezone.now() else None
+
+    def check_email_change_code(self, raw_code):
+        return check_password(raw_code, self.email_change_code_hash)
+
+    @property
+    def is_email_change_locked(self):
+        return self.email_change_locked_until is not None and self.email_change_locked_until > timezone.now()
+
+    def register_failed_email_change_attempt(self):
+        self.email_change_attempts += 1
+        if self.email_change_attempts >= settings.EMAIL_CHANGE_CODE_MAX_ATTEMPTS:
+            self.email_change_locked_until = timezone.now() + timedelta(minutes=settings.EMAIL_CHANGE_CODE_LOCKOUT_MINUTES)
+        self.save(update_fields=["email_change_attempts", "email_change_locked_until"])
+
+    def reset_email_change_attempts(self):
+        self.email_change_attempts = 0
+        self.email_change_locked_until = None
+        self.save(update_fields=["email_change_attempts", "email_change_locked_until"])
 
 
 class StaffIDSequence(models.Model):
