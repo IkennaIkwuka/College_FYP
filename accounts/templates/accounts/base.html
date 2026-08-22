@@ -28,9 +28,11 @@
                     {% endif %}
                     {% if user.is_hod %}
                         <a class="btn btn-outline-light btn-sm me-2" href="{% url 'courses:manage_courses' %}">Manage Courses</a>
+                        <a class="btn btn-outline-light btn-sm me-2" href="{% url 'courses:manage_courses' %}">Enter Results</a>
                     {% endif %}
                     {% if user.is_lecturer %}
                         <a class="btn btn-outline-light btn-sm me-2" href="{% url 'courses:my_courses' %}">My Courses</a>
+                        <a class="btn btn-outline-light btn-sm me-2" href="{% url 'courses:my_courses' %}">Enter Results</a>
                     {% endif %}
                     {% if user.is_registrar %}
                         <a class="btn btn-outline-light btn-sm me-2" href="{% url 'students:register' %}">Add Student</a>

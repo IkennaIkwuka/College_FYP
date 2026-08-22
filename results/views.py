@@ -19,20 +19,26 @@ def _hod_department(request):
     return Department.objects.filter(hod=request.user).first()
 
 
-def _can_enter_results_for(request, course):
-    if request.user.is_lecturer and course.lecturer_id == request.user.id:
-        return True
-    if request.user.is_hod:
-        department = _hod_department(request)
-        if department is not None and course.department_id == department.id:
-            return True
-    return False
+def _department_hod_for(request, course):
+    """Returns the Department if request.user HODs the course's own department, else None."""
+    if not request.user.is_hod:
+        return None
+    department = _hod_department(request)
+    if department is not None and course.department_id == department.id:
+        return department
+    return None
+
+
+def _is_owning_lecturer(request, course):
+    return request.user.is_lecturer and course.lecturer_id == request.user.id
 
 
 @login_required
 def course_results_entry(request, pk):
     course = get_object_or_404(Course, pk=pk)
-    if not _can_enter_results_for(request, course):
+    is_hod_here = _department_hod_for(request, course) is not None
+    is_owning_lecturer = _is_owning_lecturer(request, course)
+    if not (is_hod_here or is_owning_lecturer):
         raise PermissionDenied("You are not authorized to enter results for this course.")
 
     sessions = list(course.registrations.values_list("session", flat=True).distinct().order_by("-session"))
@@ -50,16 +56,30 @@ def course_results_entry(request, pk):
         formset = ScoreEntryFormSet(request.POST)
         if formset.is_valid():
             updated = 0
+            locked = 0
             for form_data in formset.cleaned_data:
                 score = form_data.get("score")
                 if score is None:
                     continue
+                registration_id = form_data["registration_id"]
+                # Once a Lecturer's initial score is in, only the HOD can touch it again -
+                # mirrors the real "forwarded to HOD" step, where the copy is out of the
+                # lecturer's hands. Re-checked here, not just hidden in the template, since
+                # a crafted POST could otherwise bypass a purely client-side lock.
+                if Result.objects.filter(registration_id=registration_id).exists() and not is_hod_here:
+                    locked += 1
+                    continue
                 Result.objects.update_or_create(
-                    registration_id=form_data["registration_id"],
+                    registration_id=registration_id,
                     defaults={"score": score, "entered_by": request.user},
                 )
                 updated += 1
-            messages.success(request, f"Saved {updated} result(s).")
+            if locked:
+                messages.warning(
+                    request, f"{locked} result(s) already entered - only the HOD can correct an existing score."
+                )
+            if updated:
+                messages.success(request, f"Saved {updated} result(s).")
             return redirect(f"{request.path}?session={session}")
     else:
         initial = [
@@ -71,7 +91,14 @@ def course_results_entry(request, pk):
         ]
         formset = ScoreEntryFormSet(initial=initial)
 
-    rows = list(zip(roster, formset.forms))
+    rows = [
+        {
+            "registration": registration,
+            "form": form,
+            "locked": hasattr(registration, "result") and not is_hod_here,
+        }
+        for registration, form in zip(roster, formset.forms)
+    ]
 
     return render(
         request,
@@ -82,6 +109,7 @@ def course_results_entry(request, pk):
             "rows": rows,
             "sessions": sessions,
             "session": session,
+            "is_hod_here": is_hod_here,
         },
     )
 

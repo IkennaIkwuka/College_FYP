@@ -157,14 +157,50 @@ class CourseResultsEntryTests(TestCase):
         response = self.client.get(self.url)
         self.assertEqual(response.status_code, 403)
 
-    def test_resubmitting_updates_not_duplicates(self):
-        self.client.login(username="lect1", password="pass12345")
+    def test_hod_resubmitting_updates_not_duplicates(self):
+        self.client.login(username="hod1", password="pass12345")
         self.client.post(f"{self.url}?session=2025/2026", _formset_post_data([(self.registration.id, 55)]))
         self.client.post(f"{self.url}?session=2025/2026", _formset_post_data([(self.registration.id, 80)]))
         self.assertEqual(Result.objects.filter(registration=self.registration).count(), 1)
         result = Result.objects.get(registration=self.registration)
         self.assertEqual(result.score, 80)
         self.assertEqual(result.grade, "A")
+
+    def test_lecturer_cannot_correct_already_entered_score(self):
+        # Once a score exists (regardless of who entered it), the owning lecturer loses
+        # edit rights on that row - only the department's HOD can correct it. Mirrors the
+        # real "forwarded to HOD" step, where the copy is out of the lecturer's hands.
+        self.client.login(username="lect1", password="pass12345")
+        self.client.post(f"{self.url}?session=2025/2026", _formset_post_data([(self.registration.id, 55)]))
+        self.client.post(f"{self.url}?session=2025/2026", _formset_post_data([(self.registration.id, 80)]))
+        self.assertEqual(Result.objects.filter(registration=self.registration).count(), 1)
+        result = Result.objects.get(registration=self.registration)
+        self.assertEqual(result.score, 55)
+        self.assertEqual(result.entered_by, self.lecturer)
+
+    def test_hod_can_correct_lecturer_entered_score(self):
+        self.client.login(username="lect1", password="pass12345")
+        self.client.post(f"{self.url}?session=2025/2026", _formset_post_data([(self.registration.id, 55)]))
+        self.client.login(username="hod1", password="pass12345")
+        self.client.post(f"{self.url}?session=2025/2026", _formset_post_data([(self.registration.id, 80)]))
+        self.assertEqual(Result.objects.filter(registration=self.registration).count(), 1)
+        result = Result.objects.get(registration=self.registration)
+        self.assertEqual(result.score, 80)
+        self.assertEqual(result.grade, "A")
+        self.assertEqual(result.entered_by, self.hod)
+
+    def test_entry_page_marks_existing_score_locked_for_lecturer(self):
+        Result.objects.create(registration=self.registration, score=55, entered_by=self.lecturer)
+        self.client.login(username="lect1", password="pass12345")
+        response = self.client.get(f"{self.url}?session=2025/2026")
+        self.assertTrue(response.context["rows"][0]["locked"])
+        self.assertContains(response, "Locked - HOD only")
+
+    def test_entry_page_not_locked_for_hod(self):
+        Result.objects.create(registration=self.registration, score=55, entered_by=self.lecturer)
+        self.client.login(username="hod1", password="pass12345")
+        response = self.client.get(f"{self.url}?session=2025/2026")
+        self.assertFalse(response.context["rows"][0]["locked"])
 
 
 class MyResultsTests(TestCase):

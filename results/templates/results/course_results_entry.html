@@ -4,7 +4,11 @@
 
 {% block content %}
     <h1>{{ course.code }} - {{ course.title }}</h1>
-    <p class="text-muted">Enter or correct final scores. A score is final the moment it's saved - there's no separate publish step, since real approval already happened offline before results reach the portal.</p>
+    {% if is_hod_here %}
+        <p class="text-muted">Enter or correct final scores for any course in your department. A score is final the moment it's saved - there's no separate publish step, since real approval already happened offline before results reach the portal.</p>
+    {% else %}
+        <p class="text-muted">Enter final scores. A score is final the moment it's saved. Once a score is entered, only your HOD can correct it - mirrors the real process of forwarding a result once it's out of your hands.</p>
+    {% endif %}
 
     <form method="get" class="mb-4 d-flex flex-wrap gap-2 align-items-end">
         <select name="session" class="form-select" style="max-width: 180px;" onchange="this.form.submit()">
@@ -28,18 +32,23 @@
                     </tr>
                 </thead>
                 <tbody>
-                    {% for registration, form in rows %}
+                    {% for row in rows %}
                         <tr>
-                            <td>{{ registration.student.user.get_full_name|default:registration.student.user.username }}</td>
-                            <td>{{ registration.student.matric_number }}</td>
-                            <td style="max-width: 120px;">
-                                {{ form.registration_id }}
-                                {{ form.score }}
-                                {% for error in form.score.errors %}
-                                    <div class="text-danger small">{{ error }}</div>
-                                {% endfor %}
+                            <td>{{ row.registration.student.user.get_full_name|default:row.registration.student.user.username }}</td>
+                            <td>{{ row.registration.student.matric_number }}</td>
+                            <td style="max-width: 160px;">
+                                {{ row.form.registration_id }}
+                                {% if row.locked %}
+                                    {{ row.registration.result.score }}
+                                    <div class="text-muted small">Locked - HOD only</div>
+                                {% else %}
+                                    {{ row.form.score }}
+                                    {% for error in row.form.score.errors %}
+                                        <div class="text-danger small">{{ error }}</div>
+                                    {% endfor %}
+                                {% endif %}
                             </td>
-                            <td>{% if registration.result %}{{ registration.result.grade }}{% else %}-{% endif %}</td>
+                            <td>{% if row.registration.result %}{{ row.registration.result.grade }}{% else %}-{% endif %}</td>
                         </tr>
                     {% endfor %}
                 </tbody>
