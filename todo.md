@@ -35,7 +35,18 @@ Bursar/Fees - expands the already-planned module:
 Admin/records:
 - [ ] Audit log - who changed what, on sensitive records (Registrar edits, staff force-reset, etc.)
 - [ ] Document upload per student (admission letter, credentials)
-- [ ] Dashboard stats for Admin/Dean - enrollment counts, department headcounts
+- [ ] Announcements/notices board - referenced below as a dashboard widget dependency, not yet its own tracked feature
+
+Per-role dashboard content (2026-08-22 brainstorm) - every dashboard is currently
+just a "Welcome, X" placeholder, no summary content:
+- [ ] IT Admin: staff/student headcount by role/department, recently created accounts, accounts still on default password / never logged in
+- [ ] Dean: departments under faculty + their HODs, faculty-wide student headcount, pending Dean approvals (once registration approval workflow exists)
+- [ ] HOD: department student headcount by level, lecturers + what they teach, pending department approvals (once registration approval workflow exists)
+- [ ] Registrar: recent admissions, students still pending first-login PIN verification, department/level breakdown counts
+- [ ] Bursar: outstanding-balance summary, recent payments, students blocked from registration on unpaid fees (blocked on Fees module above)
+- [ ] Lecturer: courses currently teaching + enrolled-student counts, recent registrations into their courses
+- [ ] Student: registered courses + unit count against MIN/MAX_SEMESTER_UNITS, CGPA/level summary (once Results exists), surface incomplete PIN/profile steps here
+- [ ] Cross-role: shared announcements/notices widget once a notice-board feature exists, same widget on every dashboard, content scoped per audience
 
 Stretch / likely out of FYP scope, noted for awareness:
 - [ ] Payment gateway integration (Paystack/Flutterwave)
