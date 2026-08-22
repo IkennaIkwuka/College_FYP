@@ -281,26 +281,28 @@ def staff_force_password_reset(request, pk):
 
 @login_required
 def dashboard(request):
-    # Thin dispatcher - sends each user to their role's dashboard so 'dashboard'
-    # (LOGIN_REDIRECT_URL) stays a stable target regardless of role count. is_admin
-    # already covers is_superuser, checked first. Dean before HOD before lecturer/
-    # registrar/bursar - a Dean or HOD is usually also a Lecturer and should land on
-    # their more specific page; Registrar/Bursar are administrative-only roles that
-    # don't overlap with the academic chain.
+    # Thin dispatcher - calls straight into each role's dashboard view so
+    # 'dashboard' (LOGIN_REDIRECT_URL) stays a stable, role-neutral URL regardless
+    # of role count. Calls the view function directly rather than redirect()ing to
+    # it, same reasoning as lu_sims.views.profile: the address bar shouldn't reveal
+    # what role landed here. is_admin already covers is_superuser, checked first.
+    # Dean before HOD before lecturer/registrar/bursar - a Dean or HOD is usually
+    # also a Lecturer and should land on their more specific page; Registrar/Bursar
+    # are administrative-only roles that don't overlap with the academic chain.
     if request.user.is_admin:
-        return redirect("admin_dashboard")
+        return admin_dashboard(request)
     if request.user.is_dean:
-        return redirect("dean_dashboard")
+        return dean_dashboard(request)
     if request.user.is_hod:
-        return redirect("hod_dashboard")
+        return hod_dashboard(request)
     if request.user.is_registrar:
-        return redirect("registrar_dashboard")
+        return registrar_dashboard(request)
     if request.user.is_bursar:
-        return redirect("bursar_dashboard")
+        return bursar_dashboard(request)
     if request.user.is_lecturer:
-        return redirect("lecturer_dashboard")
+        return lecturer_dashboard(request)
     if request.user.is_student:
-        return redirect("student_dashboard")
+        return student_dashboard(request)
     raise PermissionDenied("Your account isn't assigned to a role yet. Contact IT Admin.")
 
 

@@ -118,7 +118,9 @@ class ForcedPasswordChangeTests(TestCase):
         )
         self.profile.user.refresh_from_db()
         self.assertFalse(self.profile.user.must_change_password)
-        self.assertRedirects(self.client.get(reverse("dashboard")), reverse("student_dashboard"))
+        response = self.client.get(reverse("dashboard"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Student dashboard.")
 
     def test_weak_password_rejected(self):
         self._verify_pin()
@@ -749,46 +751,61 @@ class DashboardRoutingTests(TestCase):
         self.student_profile.user.must_change_password = False
         self.student_profile.user.save(update_fields=["must_change_password"])
 
-    def test_admin_redirected_to_admin_dashboard(self):
+    def test_admin_sees_admin_dashboard(self):
         make_admin()
         self.client.login(username="admin", password="pass12345")
-        self.assertRedirects(self.client.get(reverse("dashboard")), reverse("admin_dashboard"))
+        response = self.client.get(reverse("dashboard"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "IT Admin dashboard.")
 
-    def test_hod_redirected_to_hod_dashboard(self):
+    def test_hod_sees_hod_dashboard(self):
         make_hod()
         self.client.login(username="hod1", password="pass12345")
-        self.assertRedirects(self.client.get(reverse("dashboard")), reverse("hod_dashboard"))
+        response = self.client.get(reverse("dashboard"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "HOD dashboard.")
 
-    def test_lecturer_redirected_to_lecturer_dashboard(self):
+    def test_lecturer_sees_lecturer_dashboard(self):
         make_lecturer()
         self.client.login(username="lect1", password="pass12345")
-        self.assertRedirects(self.client.get(reverse("dashboard")), reverse("lecturer_dashboard"))
+        response = self.client.get(reverse("dashboard"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Lecturer dashboard.")
 
-    def test_student_redirected_to_student_dashboard(self):
+    def test_student_sees_student_dashboard(self):
         self.client.login(username=self.student_profile.user.username, password=settings.DEFAULT_PASSWORD)
-        self.assertRedirects(self.client.get(reverse("dashboard")), reverse("student_dashboard"))
+        response = self.client.get(reverse("dashboard"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Student dashboard.")
 
     def test_hod_takes_priority_over_lecturer(self):
         # A department head is usually also a Lecturer - HOD should win.
         user = make_hod(username="hodlect")
         user.groups.add(Group.objects.get(name=LECTURER_GROUP))
         self.client.login(username="hodlect", password="pass12345")
-        self.assertRedirects(self.client.get(reverse("dashboard")), reverse("hod_dashboard"))
+        response = self.client.get(reverse("dashboard"))
+        self.assertContains(response, "HOD dashboard.")
 
-    def test_registrar_redirected_to_registrar_dashboard(self):
+    def test_registrar_sees_registrar_dashboard(self):
         make_registrar()
         self.client.login(username="reg1", password="pass12345")
-        self.assertRedirects(self.client.get(reverse("dashboard")), reverse("registrar_dashboard"))
+        response = self.client.get(reverse("dashboard"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Registrar dashboard.")
 
-    def test_bursar_redirected_to_bursar_dashboard(self):
+    def test_bursar_sees_bursar_dashboard(self):
         make_bursar()
         self.client.login(username="bursar1", password="pass12345")
-        self.assertRedirects(self.client.get(reverse("dashboard")), reverse("bursar_dashboard"))
+        response = self.client.get(reverse("dashboard"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Bursar dashboard.")
 
-    def test_dean_redirected_to_dean_dashboard(self):
+    def test_dean_sees_dean_dashboard(self):
         make_dean()
         self.client.login(username="dean1", password="pass12345")
-        self.assertRedirects(self.client.get(reverse("dashboard")), reverse("dean_dashboard"))
+        response = self.client.get(reverse("dashboard"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Dean dashboard.")
 
     def test_dean_takes_priority_over_hod(self):
         # A Dean is senior academic staff, often also an HOD in a smaller faculty -
@@ -796,7 +813,8 @@ class DashboardRoutingTests(TestCase):
         user = make_dean(username="deanhod")
         user.groups.add(Group.objects.get(name=HOD_GROUP))
         self.client.login(username="deanhod", password="pass12345")
-        self.assertRedirects(self.client.get(reverse("dashboard")), reverse("dean_dashboard"))
+        response = self.client.get(reverse("dashboard"))
+        self.assertContains(response, "Dean dashboard.")
 
     def test_non_registrar_forbidden_from_registrar_dashboard(self):
         self.client.login(username=self.student_profile.user.username, password=settings.DEFAULT_PASSWORD)
