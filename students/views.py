@@ -402,14 +402,14 @@ def my_profile_edit(request):
             request.user.preferred_username_changed_at = timezone.now()
             request.user.save(update_fields=["preferred_username", "preferred_username_changed_at"])
             messages.success(request, "Preferred username updated.")
-            return redirect("students:my_profile")
+            return redirect("profile")
     elif request.method == "POST":
         profile_form = StudentProfileForm(request.POST, instance=profile)
         username_form = PreferredUsernameForm(user=request.user)
         if profile_form.is_valid():
             profile_form.save()
             messages.success(request, "Profile updated.")
-            return redirect("students:my_profile")
+            return redirect("profile")
     else:
         profile_form = StudentProfileForm(instance=profile)
         username_form = PreferredUsernameForm(user=request.user)

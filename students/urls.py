@@ -23,6 +23,4 @@ urlpatterns = [
     path("manage/students/", views.manage_students, name="manage_students"),
     path("manage/students/search/", views.student_search_suggestions, name="student_search_suggestions"),
     path("manage/students/<int:pk>/edit/", views.student_edit, name="student_edit"),
-    path("my-profile/", views.my_profile, name="my_profile"),
-    path("my-profile/edit/", views.my_profile_edit, name="my_profile_edit"),
 ]

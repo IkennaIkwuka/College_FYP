@@ -55,7 +55,7 @@
                         </button>
                         <ul class="dropdown-menu dropdown-menu-end">
                             <li>
-                                <a class="dropdown-item" href="{% if user.is_student %}{% url 'students:my_profile' %}{% else %}{% url 'accounts:profile' %}{% endif %}">My Profile</a>
+                                <a class="dropdown-item" href="{% url 'profile' %}">My Profile</a>
                             </li>
                             <li><a class="dropdown-item" href="{% url 'accounts:self_change_password' %}">Change Password</a></li>
                             <li><hr class="dropdown-divider"></li>

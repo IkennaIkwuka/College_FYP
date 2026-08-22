@@ -513,7 +513,7 @@ class ProfilePageTests(TestCase):
     def test_staff_can_view_own_profile(self):
         hod = make_hod(username="hodprofile")
         self.client.login(username="hodprofile", password="pass12345")
-        response = self.client.get(reverse("accounts:profile"))
+        response = self.client.get(reverse("profile"))
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, hod.email)
 
@@ -521,16 +521,19 @@ class ProfilePageTests(TestCase):
         hod = make_hod(username="hodwithdept")
         Department.objects.create(name="Physics", hod=hod)
         self.client.login(username="hodwithdept", password="pass12345")
-        response = self.client.get(reverse("accounts:profile"))
+        response = self.client.get(reverse("profile"))
         self.assertContains(response, "Physics")
 
     def test_lecturer_profile_has_no_department_row(self):
         make_lecturer(username="lectprofile")
         self.client.login(username="lectprofile", password="pass12345")
-        response = self.client.get(reverse("accounts:profile"))
+        response = self.client.get(reverse("profile"))
         self.assertNotContains(response, "Department")
 
-    def test_student_redirected_to_own_profile_page(self):
+    def test_neutral_profile_url_serves_student_content_directly(self):
+        # The URL itself must stay role-neutral - no redirect to a role-specific
+        # path, same reasoning as the earlier /login/ move (ec4631b): the address
+        # bar shouldn't reveal what kind of account this is.
         department = Department.objects.create(name="Chemistry")
         profile = create_student_account(
             matric_number="2023/CSC/060",
@@ -543,21 +546,23 @@ class ProfilePageTests(TestCase):
         profile.user.must_change_password = False
         profile.user.save(update_fields=["must_change_password"])
         self.client.login(username=profile.user.username, password=settings.DEFAULT_PASSWORD)
-        response = self.client.get(reverse("accounts:profile"))
-        self.assertRedirects(response, reverse("students:my_profile"))
+        response = self.client.get(reverse("profile"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "2023/CSC/060")
+        self.assertContains(response, "Academic Details")
 
     def test_profile_page_is_view_only(self):
         make_lecturer(username="viewonly1")
         self.client.login(username="viewonly1", password="pass12345")
-        response = self.client.get(reverse("accounts:profile"))
+        response = self.client.get(reverse("profile"))
         self.assertNotContains(response, 'name="save_profile"')
         self.assertNotContains(response, 'name="save_username"')
-        self.assertContains(response, reverse("accounts:profile_edit"))
+        self.assertContains(response, reverse("profile_edit"))
 
     def test_edit_page_has_the_editable_forms(self):
         make_lecturer(username="editpage1")
         self.client.login(username="editpage1", password="pass12345")
-        response = self.client.get(reverse("accounts:profile_edit"))
+        response = self.client.get(reverse("profile_edit"))
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'name="save_profile"')
         self.assertContains(response, 'name="save_username"')
@@ -565,20 +570,20 @@ class ProfilePageTests(TestCase):
     def test_view_page_has_no_change_email_link(self):
         make_lecturer(username="viewnoemail1")
         self.client.login(username="viewnoemail1", password="pass12345")
-        response = self.client.get(reverse("accounts:profile"))
+        response = self.client.get(reverse("profile"))
         self.assertNotContains(response, reverse("accounts:request_email_change"))
 
     def test_edit_page_has_change_email_link(self):
         make_lecturer(username="editemail1")
         self.client.login(username="editemail1", password="pass12345")
-        response = self.client.get(reverse("accounts:profile_edit"))
+        response = self.client.get(reverse("profile_edit"))
         self.assertContains(response, reverse("accounts:request_email_change"))
 
     def test_staff_can_update_personal_info(self):
         make_lecturer(username="staffpersonal1")
         self.client.login(username="staffpersonal1", password="pass12345")
         response = self.client.post(
-            reverse("accounts:profile_edit"),
+            reverse("profile_edit"),
             {
                 "save_profile": "1",
                 "phone_number": "08012345678",
@@ -586,7 +591,7 @@ class ProfilePageTests(TestCase):
                 "gender": "M",
             },
         )
-        self.assertRedirects(response, reverse("accounts:profile"))
+        self.assertRedirects(response, reverse("profile"))
         user = User.objects.get(username="staffpersonal1")
         self.assertEqual(user.phone_number, "08012345678")
         self.assertEqual(str(user.date_of_birth), "1998-05-14")
@@ -700,16 +705,16 @@ class PreferredUsernameViewTests(TestCase):
     def test_staff_can_set_preferred_username(self):
         make_hod(username="puview1")
         self.client.login(username="puview1", password="pass12345")
-        response = self.client.post(reverse("accounts:profile_edit"), {"preferred_username": "hodada"})
-        self.assertRedirects(response, reverse("accounts:profile"))
+        response = self.client.post(reverse("profile_edit"), {"preferred_username": "hodada"})
+        self.assertRedirects(response, reverse("profile"))
         user = User.objects.get(username="puview1")
         self.assertEqual(user.preferred_username, "hodada")
 
     def test_second_change_within_cooldown_is_rejected(self):
         make_hod(username="puview2")
         self.client.login(username="puview2", password="pass12345")
-        self.client.post(reverse("accounts:profile_edit"), {"preferred_username": "firstpick"})
-        response = self.client.post(reverse("accounts:profile_edit"), {"preferred_username": "secondpick"})
+        self.client.post(reverse("profile_edit"), {"preferred_username": "firstpick"})
+        response = self.client.post(reverse("profile_edit"), {"preferred_username": "secondpick"})
         self.assertEqual(response.status_code, 200)
         user = User.objects.get(username="puview2")
         self.assertEqual(user.preferred_username, "firstpick")
@@ -981,10 +986,10 @@ class SelfChangePasswordTests(TestCase):
 
     def test_correct_current_password_changes_password_and_stays_logged_in(self):
         response = self._change("pass12345")
-        self.assertRedirects(response, reverse("accounts:profile"))
+        self.assertRedirects(response, reverse("profile"))
         # update_session_auth_hash means the session survives the password change -
         # a follow-up request should still be authenticated, not bounced to login.
-        response = self.client.get(reverse("accounts:profile"))
+        response = self.client.get(reverse("profile"))
         self.assertEqual(response.status_code, 200)
         self.client.logout()
         self.assertTrue(self.client.login(username="selfchpw1", password="N3wPassw0rd!"))
@@ -1022,7 +1027,7 @@ class EmailChangeTests(TestCase):
         old_email = self.user.email
         _, code = self._request_change("new.address@example.com")
         response = self._confirm(code)
-        self.assertRedirects(response, reverse("accounts:profile"))
+        self.assertRedirects(response, reverse("profile"))
 
         self.user.refresh_from_db()
         self.assertEqual(self.user.email, "new.address@example.com")

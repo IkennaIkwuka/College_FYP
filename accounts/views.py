@@ -50,20 +50,14 @@ from .services import (
 
 @login_required
 def profile(request):
-    # Students have their own richer profile page (academic details + editable
-    # personal fields) - send anyone who lands here via a stale link or bookmark
-    # to that instead of showing them this staff-oriented version.
-    if request.user.is_student:
-        return redirect("students:my_profile")
-
+    # Reached only for non-student accounts - lu_sims.views.profile (the shared,
+    # role-neutral /profile/ dispatcher) routes students to students.views.my_profile
+    # instead, since accounts can't import students.
     return render(request, "accounts/profile.html")
 
 
 @login_required
 def profile_edit(request):
-    if request.user.is_student:
-        return redirect("students:my_profile_edit")
-
     # Two forms on one page (mirrors students.views.my_profile_edit's pattern) - the
     # submit button's name says which one was actually submitted.
     if request.method == "POST" and "save_profile" in request.POST:
@@ -72,7 +66,7 @@ def profile_edit(request):
         if profile_form.is_valid():
             profile_form.save()
             messages.success(request, "Profile updated.")
-            return redirect("accounts:profile")
+            return redirect("profile")
     elif request.method == "POST":
         username_form = PreferredUsernameForm(request.POST, user=request.user)
         profile_form = StaffProfileForm(instance=request.user)
@@ -81,7 +75,7 @@ def profile_edit(request):
             request.user.preferred_username_changed_at = timezone.now()
             request.user.save(update_fields=["preferred_username", "preferred_username_changed_at"])
             messages.success(request, "Preferred username updated.")
-            return redirect("accounts:profile")
+            return redirect("profile")
     else:
         profile_form = StaffProfileForm(instance=request.user)
         username_form = PreferredUsernameForm(user=request.user)
@@ -131,7 +125,7 @@ def confirm_email_change(request):
             except Exception:
                 pass  # best-effort - the actual change already succeeded
             messages.success(request, "Email updated.")
-            return redirect("accounts:profile")
+            return redirect("profile")
     else:
         form = EmailChangeCodeForm(user=request.user)
 
@@ -379,7 +373,7 @@ class SelfChangePasswordView(auth_views.PasswordChangeView):
 
     template_name = "accounts/self_change_password.html"
     form_class = SelfChangePasswordForm
-    success_url = reverse_lazy("accounts:profile")
+    success_url = reverse_lazy("profile")
 
     def form_valid(self, form):
         # PasswordChangeView.form_valid() already calls update_session_auth_hash,

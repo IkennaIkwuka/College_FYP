@@ -278,49 +278,57 @@ class MyProfileTests(TestCase):
         self.client.login(username=self.profile.user.username, password=settings.DEFAULT_PASSWORD)
 
     def test_shows_own_academic_details(self):
-        response = self.client.get(reverse("students:my_profile"))
+        response = self.client.get(reverse("profile"))
         self.assertContains(response, "2023/CSC/091")
         self.assertContains(response, "Computer Science")
 
     def test_profile_page_is_view_only(self):
-        response = self.client.get(reverse("students:my_profile"))
+        response = self.client.get(reverse("profile"))
         self.assertNotContains(response, 'name="save_username"')
-        self.assertContains(response, reverse("students:my_profile_edit"))
+        self.assertContains(response, reverse("profile_edit"))
 
     def test_edit_page_has_the_editable_forms(self):
-        response = self.client.get(reverse("students:my_profile_edit"))
+        response = self.client.get(reverse("profile_edit"))
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'name="save_username"')
 
     def test_view_page_has_no_change_email_link(self):
-        response = self.client.get(reverse("students:my_profile"))
+        response = self.client.get(reverse("profile"))
         self.assertNotContains(response, reverse("accounts:request_email_change"))
 
     def test_edit_page_has_change_email_link(self):
-        response = self.client.get(reverse("students:my_profile_edit"))
+        response = self.client.get(reverse("profile_edit"))
         self.assertContains(response, reverse("accounts:request_email_change"))
 
     def test_can_update_personal_details(self):
         response = self.client.post(
-            reverse("students:my_profile_edit"),
+            reverse("profile_edit"),
             {"date_of_birth": "2000-01-01", "gender": "M", "phone_number": "08012345678", "address": "Okija"},
         )
-        self.assertRedirects(response, reverse("students:my_profile"))
+        self.assertRedirects(response, reverse("profile"))
         self.profile.refresh_from_db()
         self.assertEqual(self.profile.phone_number, "08012345678")
         self.assertEqual(self.profile.address, "Okija")
 
-    def test_non_student_forbidden(self):
-        make_admin()
+    def test_neutral_profile_url_routes_non_student_to_their_own_staff_profile(self):
+        # /profile/ is now a single role-neutral URL (matches the earlier /login/
+        # move) - a staff account hitting it gets their own staff profile content,
+        # not a 403. students.views.my_profile itself is still student-only
+        # (@student_required stays as defense-in-depth), it's just never reached
+        # for a staff user because the dispatcher routes by role before that.
+        admin = make_admin()
         self.client.login(username="admin", password="pass12345")
-        self.assertEqual(self.client.get(reverse("students:my_profile")).status_code, 403)
+        response = self.client.get(reverse("profile"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, admin.email)
+        self.assertNotContains(response, "Academic Details")
 
     def test_can_set_preferred_username_without_touching_personal_details(self):
         response = self.client.post(
-            reverse("students:my_profile_edit"),
+            reverse("profile_edit"),
             {"preferred_username": "chidi_n", "save_username": "1"},
         )
-        self.assertRedirects(response, reverse("students:my_profile"))
+        self.assertRedirects(response, reverse("profile"))
         self.profile.user.refresh_from_db()
         self.assertEqual(self.profile.user.preferred_username, "chidi_n")
         self.profile.refresh_from_db()
@@ -332,10 +340,10 @@ class MyProfileTests(TestCase):
         self.profile.user.save(update_fields=["preferred_username", "preferred_username_changed_at"])
 
         response = self.client.post(
-            reverse("students:my_profile_edit"),
+            reverse("profile_edit"),
             {"date_of_birth": "2000-01-01", "gender": "M", "phone_number": "08012345678", "address": "Okija"},
         )
-        self.assertRedirects(response, reverse("students:my_profile"))
+        self.assertRedirects(response, reverse("profile"))
         self.profile.user.refresh_from_db()
         self.assertEqual(self.profile.user.preferred_username, "chidi_n")
 

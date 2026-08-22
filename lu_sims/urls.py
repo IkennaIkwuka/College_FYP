@@ -18,8 +18,12 @@ from accounts import views as accounts_views
 from django.contrib import admin
 from django.urls import include, path
 
+from . import views as lu_sims_views
+
 urlpatterns = [
     path('login/', accounts_views.PortalLoginView.as_view(), name='login'),
+    path('profile/', lu_sims_views.profile, name='profile'),
+    path('profile/edit/', lu_sims_views.profile_edit, name='profile_edit'),
     path('dashboard/', accounts_views.dashboard, name='dashboard'),
     path('dashboard/admin/', accounts_views.admin_dashboard, name='admin_dashboard'),
     path('dashboard/dean/', accounts_views.dean_dashboard, name='dean_dashboard'),
