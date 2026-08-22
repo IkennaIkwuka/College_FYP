@@ -6,6 +6,7 @@
 - [ ] Carryover-student handling (depends on Results system above) - no tracking of failed/repeated courses, no NUC max-duration (~1.5x programme length) withdrawal enforcement
 - [ ] Staff qualification tracking - no field records highest qualification, so HOD/Dean appointments can't be checked against NUC's practical PhD expectation
 - [ ] Superuser vs IT Admin identity/dashboard separation - deferred mid-discussion, never decided between a label-only fix and a fully separate dashboard
+- [ ] Auxiliary/informal staff designations (Exams Officer, Course/Level Adviser, SIWES Coordinator, etc.) - 2026-08-22 discussion: don't give these full RBAC treatment (new Group/decorator/dashboard/nav/ID-code) like the 7 core roles, since they're informal "hats" a Lecturer holds on top of their main role, not standardized structural offices, and there's no feature yet to gate by them. Model as a lightweight descriptive designation field on User first; only wire a real permission check once an actual feature (e.g. an Exams module) needs restricting to whoever holds it
 
 From the 2026-08-21 project audit (SECRET_KEY/DEBUG/ALLOWED_HOSTS already fixed):
 - [ ] SQLite -> real DB before deployment - needs an actual DB instance to point at, deliberately not picked yet
