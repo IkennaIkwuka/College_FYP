@@ -24,6 +24,7 @@
                     {% if user.is_student %}
                         <a class="btn btn-outline-light btn-sm me-2" href="{% url 'courses:register' %}">Register for Courses</a>
                         <a class="btn btn-outline-light btn-sm me-2" href="{% url 'courses:my_registrations' %}">My Registrations</a>
+                        <a class="btn btn-outline-light btn-sm me-2" href="{% url 'results:my_results' %}">My Results</a>
                     {% endif %}
                     {% if user.is_hod %}
                         <a class="btn btn-outline-light btn-sm me-2" href="{% url 'courses:manage_courses' %}">Manage Courses</a>

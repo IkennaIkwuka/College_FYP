@@ -68,6 +68,7 @@
                             <td class="text-end">
                                 <a href="{% url 'courses:course_edit' course.id %}" class="btn btn-outline-secondary btn-sm">Edit</a>
                                 <a href="{% url 'courses:course_registrations' course.id %}" class="btn btn-outline-secondary btn-sm">Registrations</a>
+                                <a href="{% url 'results:course_results_entry' course.id %}" class="btn btn-outline-secondary btn-sm">Enter Results</a>
                                 <form method="post" action="{% url 'courses:course_toggle_active' course.id %}" class="d-inline">
                                     {% csrf_token %}
                                     <button type="submit" class="btn btn-outline-secondary btn-sm">

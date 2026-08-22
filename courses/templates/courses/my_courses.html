@@ -16,6 +16,7 @@
                     <th>Semester</th>
                     <th>Units</th>
                     <th>Status</th>
+                    <th></th>
                 </tr>
             </thead>
             <tbody>
@@ -33,6 +34,9 @@
                             {% else %}
                                 <span class="badge bg-secondary">Inactive</span>
                             {% endif %}
+                        </td>
+                        <td class="text-end">
+                            <a href="{% url 'results:course_results_entry' course.id %}" class="btn btn-outline-secondary btn-sm">Enter Results</a>
                         </td>
                     </tr>
                 {% endfor %}
