@@ -13,6 +13,7 @@ LEVEL_CHOICES = [
     (300, "300 Level"),
     (400, "400 Level"),
     (500, "500 Level"),
+    (600, "600 Level"),
 ]
 
 GENDER_CHOICES = [
