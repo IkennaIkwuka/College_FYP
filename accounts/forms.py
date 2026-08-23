@@ -1,6 +1,7 @@
 import re
 
 from django import forms
+from django.contrib.auth import authenticate
 from django.contrib.auth.forms import (
     AuthenticationForm,
     PasswordChangeForm,
@@ -46,6 +47,27 @@ class LoginForm(BootstrapFormMixin, AuthenticationForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["password"].required = False
+
+    def clean(self):
+        # Stock AuthenticationForm.clean() only calls authenticate() when
+        # `password` is truthy ("if username is not None and password:"), so a
+        # blank password (the first-login case above) skips authenticate()
+        # entirely - user_cache stays None, no error gets raised, and the view
+        # ends up calling login(request, None), which falls back to whatever
+        # user was already in the session instead of failing. Drop that "and
+        # password" gate so a blank password still goes through authenticate()
+        # and gets a real accept/reject answer from the backend.
+        username = self.cleaned_data.get("username")
+        password = self.cleaned_data.get("password")
+
+        if username is not None:
+            self.user_cache = authenticate(self.request, username=username, password=password)
+            if self.user_cache is None:
+                raise self.get_invalid_login_error()
+            else:
+                self.confirm_login_allowed(self.user_cache)
+
+        return self.cleaned_data
 
 
 class ForgotPasswordForm(BootstrapFormMixin, PasswordResetForm):

@@ -91,6 +91,58 @@ class LoginTests(TestCase):
         self.assertTrue(self.client.login(username="j.smith_1", password="pass12345"))
 
 
+class LoginViewFormTests(TestCase):
+    """Exercises the actual login view/form (POST to accounts:login), not the
+    self.client.login() shortcut the other classes use - that shortcut calls
+    authenticate()/login() directly and never goes through LoginForm.clean(),
+    so it can't catch a bug that only exists in the form's own clean() logic
+    (as one did: a blank password was silently never passed to authenticate()
+    at all, leaving form.get_user() as None and logging in as whatever user
+    was already in the session instead of failing outright)."""
+
+    def setUp(self):
+        self.department = Department.objects.create(name="Computer Science")
+        self.profile = create_student_account(
+            matric_number="2023/CSC/035",
+            first_name="Femi",
+            last_name="Ade",
+            email="femi@example.com",
+            department=self.department,
+            entry_level=300,
+        )
+        self.staff = make_lecturer(username="loginviewtest1")
+
+    def test_blank_password_for_returning_user_is_rejected_not_silently_logged_in(self):
+        response = self.client.post(
+            reverse("login"), {"username": "loginviewtest1", "password": ""}
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(response.context["user"].is_authenticated)
+        self.assertFalse(response.wsgi_request.user.is_authenticated)
+
+    def test_blank_password_does_not_fall_back_to_the_already_logged_in_user(self):
+        # The actual reported bug: log in as user A, then submit the login form
+        # again for user B with a blank password. The buggy clean() skipped
+        # authenticate() and login(request, None) fell back to request.user -
+        # silently keeping A logged in ("takes me to the last logged-in user")
+        # instead of rejecting the attempt.
+        self.client.login(username="loginviewtest1", password="pass12345")
+
+        other_staff = make_lecturer(username="loginviewtest2")
+        self.client.post(reverse("login"), {"username": other_staff.username, "password": ""})
+
+        response = self.client.get(reverse("profile"))
+        self.assertEqual(response.wsgi_request.user.username, "loginviewtest1")
+        self.assertNotEqual(response.wsgi_request.user.username, other_staff.username)
+
+    def test_blank_password_for_fresh_student_logs_in_via_the_real_view(self):
+        response = self.client.post(
+            reverse("login"), {"username": self.profile.user.username, "password": ""}, follow=True
+        )
+        self.assertTrue(response.wsgi_request.user.is_authenticated)
+        self.assertEqual(response.wsgi_request.user.pk, self.profile.user.pk)
+
+
 class SessionExpiryTests(TestCase):
     """FR-AUTH-06: a session idle for 15 minutes stops being valid - same
     settings.LOGIN_LOCKOUT_MINUTES-style value as the other lockouts, applied to
