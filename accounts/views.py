@@ -1,4 +1,5 @@
 from django.contrib import messages
+from django.contrib.auth import login
 from django.contrib.auth import views as auth_views
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.hashers import make_password
@@ -411,6 +412,13 @@ class ForgotPasswordConfirmView(auth_views.PasswordResetConfirmView):
         response = super().form_valid(form)
         form.user.must_change_password = False
         form.user.save(update_fields=["must_change_password"])
+        # Owning the emailed link already proved who they are - matches
+        # ForcedPasswordChangeView, which keeps a student's session alive
+        # (update_session_auth_hash) instead of making them retype what they
+        # just typed. Explicit backend: only one is configured
+        # (AUTHENTICATION_BACKENDS), but login() only auto-resolves that when
+        # exactly one exists - naming it here doesn't depend on that staying true.
+        login(self.request, form.user, backend="accounts.auth_backends.LenientUsernameBackend")
         return response
 
 

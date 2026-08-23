@@ -757,7 +757,7 @@ class StaffSetupLinkTests(TestCase):
         self.assertEqual(len(mail.outbox), 1)
         self.assertIn(self.staff.email, mail.outbox[0].to)
 
-    def test_setup_link_lets_staff_set_first_password_and_log_in(self):
+    def test_setup_link_sets_password_and_logs_staff_in_immediately(self):
         self._send()
         match = re.search(r"(/accounts/forgot-password/\S+/\S+/)", mail.outbox[0].body)
         setup_url = match.group(1)
@@ -770,6 +770,8 @@ class StaffSetupLinkTests(TestCase):
             follow=True,
         )
         self.assertRedirects(response, reverse("accounts:forgot_password_complete"))
+        self.assertTrue(response.wsgi_request.user.is_authenticated)
+        self.assertEqual(response.wsgi_request.user.username, self.staff.username)
 
         self.client.logout()
         self.assertTrue(self.client.login(username=self.staff.username, password="N3wPassw0rd!"))
@@ -1253,7 +1255,11 @@ class ForgotPasswordTests(TestCase):
         self.assertRedirects(response, reverse("accounts:forgot_password_done"))
         self.assertEqual(len(mail.outbox), 0)
 
-    def test_reset_link_allows_setting_new_password_and_logs_in(self):
+    def test_reset_link_sets_password_and_logs_user_in_immediately(self):
+        # No need to send them back through the login form to re-type what
+        # they just typed - matches the passwordless student first-login flow
+        # (ForcedPasswordChangeView), which already keeps the session alive via
+        # update_session_auth_hash() instead of forcing a fresh login.
         self._request(self.user.email)
         match = re.search(r"(/accounts/forgot-password/\S+/\S+/)", mail.outbox[0].body)
         reset_url = match.group(1)
@@ -1266,7 +1272,11 @@ class ForgotPasswordTests(TestCase):
             follow=True,
         )
         self.assertRedirects(response, reverse("accounts:forgot_password_complete"))
+        self.assertTrue(response.wsgi_request.user.is_authenticated)
+        self.assertEqual(response.wsgi_request.user.username, self.user.username)
 
+        # The new password itself is also genuinely usable, independent of the
+        # auto-login above.
         self.client.logout()
         self.assertTrue(self.client.login(username=self.user.username, password="N3wPassw0rd!"))
 
