@@ -1,0 +1,7 @@
+A staff account has been created for you on LU-SIMS, username "{{ user.username }}".
+
+Click the link below to set your password and finish setting up your account. It expires in 1 hour:
+
+{{ protocol }}://{{ domain }}{% url 'accounts:forgot_password_confirm' uidb64=uid token=token %}
+
+If you weren't expecting this, contact IT Admin or the Registrar's office.

@@ -368,7 +368,7 @@ class AdminOnlyViewsTests(TestCase):
         )
         self.assertEqual(
             self.client.post(
-                reverse("accounts:staff_force_password_reset", args=[staff.id])
+                reverse("accounts:staff_send_setup_link", args=[staff.id])
             ).status_code,
             403,
         )
@@ -389,6 +389,10 @@ class AdminOnlyViewsTests(TestCase):
         self.assertRegex(new_staff.staff_id, r"^LU-LC-\d{2}-\d{4}$")
         self.assertEqual(new_staff.username, re.sub(r"[^a-z0-9]", "", new_staff.staff_id.lower()))
         self.assertTrue(new_staff.groups.filter(name=LECTURER_GROUP).exists())
+        # No usable password and no email sent at creation time - a setup link
+        # only goes out when an admin explicitly clicks "Send setup link" later.
+        self.assertFalse(new_staff.has_usable_password())
+        self.assertEqual(len(mail.outbox), 0)
 
     def test_staff_ids_are_sequential_within_role_and_year(self):
         self.client.login(username="admin", password="pass12345")
@@ -471,18 +475,6 @@ class AdminOnlyViewsTests(TestCase):
         self.assertEqual(staff.first_name, "Updated")
         self.assertTrue(staff.groups.filter(name=LECTURER_GROUP).exists())
         self.assertFalse(staff.groups.filter(name=HOD_GROUP).exists())
-
-    def test_admin_can_force_staff_password_reset(self):
-        staff = make_hod(username="hodtoreset")
-        staff.set_password("someoldpassword")
-        staff.must_change_password = False
-        staff.save()
-        self.client.login(username="admin", password="pass12345")
-        response = self.client.post(reverse("accounts:staff_force_password_reset", args=[staff.id]))
-        self.assertRedirects(response, reverse("accounts:manage_staff"))
-        staff.refresh_from_db()
-        self.assertTrue(staff.check_password(settings.DEFAULT_PASSWORD))
-        self.assertTrue(staff.must_change_password)
 
     def test_editing_staff_does_not_flag_own_unchanged_email(self):
         staff = make_hod(username="hodkeepemail")
@@ -670,12 +662,12 @@ class StaffIdentityTests(TestCase):
         self.assertEqual(user.staff_id, "LU-LC-26-0003")
         self.assertEqual(user.username, "lulc260003")
 
-    def test_default_password_and_forced_change(self):
+    def test_unusable_password_and_forced_change(self):
         user = assign_staff_identity(
             User(email="c@example.com", first_name="C", last_name="Three", staff_id="LU-LC-26-0004")
         )
         user.save()
-        self.assertTrue(user.check_password(settings.DEFAULT_PASSWORD))
+        self.assertFalse(user.has_usable_password())
         self.assertTrue(user.must_change_password)
 
 
@@ -702,6 +694,8 @@ class AdminStaffCreationTests(TestCase):
         self.assertEqual(user.username, re.sub(r"[^a-z0-9]", "", user.staff_id.lower()))
         self.assertTrue(user.must_change_password)
         self.assertTrue(user.groups.filter(name=LECTURER_GROUP).exists())
+        self.assertFalse(user.has_usable_password())
+        self.assertEqual(len(mail.outbox), 0)
 
     def test_admin_add_form_rejects_zero_or_multiple_staff_groups(self):
         response = self.client.post(
@@ -732,6 +726,87 @@ class AdminStaffCreationTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertFalse(User.objects.filter(email="grace3@example.com").exists())
         self.assertContains(response, "Select exactly one staff role.")
+
+
+class StaffSetupLinkTests(TestCase):
+    """A staff account is created with no usable password at all (see
+    StaffIdentityTests) - this covers the admin-triggered "Send setup link"
+    action that's the only door into a real password for that account. Follows
+    the same shape as ForgotPasswordTests, since it reuses the same confirm URL
+    (accounts:forgot_password_confirm) and token mechanism - the difference is
+    who triggers it (an admin picking a specific account, not the account owner
+    entering their email) and that there's no PIN, no blank-password login
+    allowed for staff at all (see LoginTests/PasswordlessFirstLoginTests, which
+    is students-only)."""
+
+    def setUp(self):
+        self.admin_user = make_admin()
+        self.staff = assign_staff_identity(
+            User(email="setup@example.com", first_name="Set", last_name="Up", staff_id="LU-LC-26-9001")
+        )
+        self.staff.save()
+        self.staff.groups.add(Group.objects.get(name=LECTURER_GROUP))
+        self.client.login(username="admin", password="pass12345")
+
+    def _send(self):
+        return self.client.post(reverse("accounts:staff_send_setup_link", args=[self.staff.id]))
+
+    def test_admin_can_send_setup_link(self):
+        response = self._send()
+        self.assertRedirects(response, reverse("accounts:manage_staff"))
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertIn(self.staff.email, mail.outbox[0].to)
+
+    def test_setup_link_lets_staff_set_first_password_and_log_in(self):
+        self._send()
+        match = re.search(r"(/accounts/forgot-password/\S+/\S+/)", mail.outbox[0].body)
+        setup_url = match.group(1)
+
+        response = self.client.get(setup_url, follow=True)
+        set_password_url = response.redirect_chain[-1][0]
+        response = self.client.post(
+            set_password_url,
+            {"new_password1": "N3wPassw0rd!", "new_password2": "N3wPassw0rd!"},
+            follow=True,
+        )
+        self.assertRedirects(response, reverse("accounts:forgot_password_complete"))
+
+        self.client.logout()
+        self.assertTrue(self.client.login(username=self.staff.username, password="N3wPassw0rd!"))
+
+    def test_setup_link_clears_must_change_password_flag(self):
+        self._send()
+        match = re.search(r"(/accounts/forgot-password/\S+/\S+/)", mail.outbox[0].body)
+        response = self.client.get(match.group(1), follow=True)
+        set_password_url = response.redirect_chain[-1][0]
+        self.client.post(
+            set_password_url,
+            {"new_password1": "N3wPassw0rd!", "new_password2": "N3wPassw0rd!"},
+        )
+        self.staff.refresh_from_db()
+        self.assertFalse(self.staff.must_change_password)
+
+    def test_staff_cannot_authenticate_before_completing_setup(self):
+        # No blank-password bypass for staff (that's students-only, see
+        # PasswordlessFirstLoginTests) - a not-yet-set-up account just can't log
+        # in at all until the setup link is used.
+        self.assertFalse(self.client.login(username=self.staff.username, password=""))
+        self.assertFalse(self.client.login(username=self.staff.username, password="anything-at-all"))
+
+    def test_resending_setup_link_invalidates_previous_link(self):
+        self._send()
+        first_match = re.search(r"(/accounts/forgot-password/\S+/\S+/)", mail.outbox[0].body)
+        first_url = first_match.group(1)
+
+        self._send()
+        second_match = re.search(r"(/accounts/forgot-password/\S+/\S+/)", mail.outbox[1].body)
+        second_url = second_match.group(1)
+
+        stale_response = self.client.get(first_url, follow=True)
+        self.assertContains(stale_response, "invalid or has expired")
+
+        fresh_response = self.client.get(second_url, follow=True)
+        self.assertContains(fresh_response, "Set Password")
 
 
 class ProfilePageTests(TestCase):

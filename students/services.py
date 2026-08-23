@@ -32,9 +32,11 @@ def send_pin_email(profile, raw_pin):
 def reset_student_first_login(user):
     """Puts a student's account back into the same passwordless-first-login state
     a freshly created one starts in - the student-specific counterpart to
-    accounts.services.force_password_reset, which stays on the shared-password
-    scheme for staff. Kept here rather than as a branch in that shared function,
-    since accounts can't know about a student-only login scheme.
+    accounts.services.send_staff_setup_link. Both now use set_unusable_password(),
+    just with different re-entry mechanisms: a student re-enters via username-only
+    login + emailed PIN, staff re-enter via an emailed setup link, never through
+    the login form at all. Kept here rather than in accounts, since accounts can't
+    know about a student-only login scheme.
     """
     user.set_unusable_password()
     user.must_change_password = True

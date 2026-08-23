@@ -1,5 +1,4 @@
 from django import forms
-from django.conf import settings
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 
@@ -65,8 +64,8 @@ class UserAdmin(BaseUserAdmin):
         if not change:
             self.message_user(
                 request,
-                f'Staff account created. Username is "{obj.username}"; '
-                f'initial password is "{settings.DEFAULT_PASSWORD}".',
+                f'Staff account created. Username is "{obj.username}". Django admin has '
+                "no setup-link button - go to Manage Staff in the portal to invite them.",
             )
 
 

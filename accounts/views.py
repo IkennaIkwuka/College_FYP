@@ -1,4 +1,3 @@
-from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth import views as auth_views
 from django.contrib.auth.decorators import login_required
@@ -38,11 +37,11 @@ from .forms import (
 from .models import User
 from .services import (
     assign_staff_identity,
-    force_password_reset,
     generate_code,
     generate_staff_id,
     send_email_change_code,
     send_email_change_notice,
+    send_staff_setup_link,
 )
 
 
@@ -241,18 +240,14 @@ def staff_add(request):
             user.groups.add(form.cleaned_data["group"])
             messages.success(
                 request,
-                f'Staff account created. Username is "{user.username}"; '
-                f'initial password is "{settings.DEFAULT_PASSWORD}".',
+                f'Staff account created. Username is "{user.username}". '
+                "Send them a setup link from the staff list when you're ready to invite them.",
             )
             return redirect("accounts:manage_staff")
     else:
         form = StaffAccountForm()
 
-    return render(
-        request,
-        "accounts/staff_form.html",
-        {"form": form, "default_password": settings.DEFAULT_PASSWORD},
-    )
+    return render(request, "accounts/staff_form.html", {"form": form})
 
 
 @admin_required
@@ -280,16 +275,15 @@ def staff_edit(request, pk):
 
 
 @admin_required
-def staff_force_password_reset(request, pk):
+def staff_send_setup_link(request, pk):
     staff_user = get_object_or_404(User, pk=pk, groups__name__in=STAFF_GROUPS)
 
     if request.method == "POST":
-        force_password_reset(staff_user)
+        send_staff_setup_link(staff_user, request)
         messages.success(
             request,
-            f"Password reset for {staff_user.get_full_name() or staff_user.username}. "
-            f'They\'ll need to log in with the default password ("{settings.DEFAULT_PASSWORD}") '
-            "and set a new one.",
+            f"Setup link sent to {staff_user.email} for "
+            f"{staff_user.get_full_name() or staff_user.username}.",
         )
     return redirect("accounts:manage_staff")
 

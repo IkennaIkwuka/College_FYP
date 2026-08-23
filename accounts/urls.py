@@ -14,9 +14,9 @@ urlpatterns = [
     path("manage/staff/<int:pk>/", views.staff_detail, name="staff_detail"),
     path("manage/staff/<int:pk>/edit/", views.staff_edit, name="staff_edit"),
     path(
-        "manage/staff/<int:pk>/reset-password/",
-        views.staff_force_password_reset,
-        name="staff_force_password_reset",
+        "manage/staff/<int:pk>/send-setup-link/",
+        views.staff_send_setup_link,
+        name="staff_send_setup_link",
     ),
     path("logout/", auth_views.LogoutView.as_view(), name="logout"),
     path("change-password/", views.ForcedPasswordChangeView.as_view(), name="change_password"),

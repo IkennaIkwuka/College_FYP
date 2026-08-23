@@ -44,9 +44,9 @@
                         <td>{{ staff_user.staff_id|default:"-" }}</td>
                         <td class="text-end">
                             <a href="{% url 'accounts:staff_detail' staff_user.id %}" class="btn btn-outline-secondary btn-sm">View</a>
-                            <form method="post" action="{% url 'accounts:staff_force_password_reset' staff_user.id %}" class="d-inline">
+                            <form method="post" action="{% url 'accounts:staff_send_setup_link' staff_user.id %}" class="d-inline">
                                 {% csrf_token %}
-                                <button type="submit" class="btn btn-outline-secondary btn-sm">Reset Password</button>
+                                <button type="submit" class="btn btn-outline-secondary btn-sm">Send setup link</button>
                             </form>
                         </td>
                     </tr>
