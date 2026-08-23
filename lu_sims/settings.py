@@ -57,9 +57,13 @@ INSTALLED_APPS = [
 
 AUTH_USER_MODEL = 'accounts.User'
 
+# Only LenientUsernameBackend - it already extends ModelBackend (inherits
+# has_perm/get_all_permissions unchanged), so it's a strict superset for
+# authentication purposes. A second, separate ModelBackend entry here would let
+# Django silently fall through to it whenever the first backend returns None,
+# bypassing the FR-AUTH-05 login lockout entirely for exact-username logins.
 AUTHENTICATION_BACKENDS = [
     'accounts.auth_backends.LenientUsernameBackend',
-    'django.contrib.auth.backends.ModelBackend',
 ]
 
 LOGIN_URL = 'login'
@@ -129,6 +133,12 @@ PIN_LOCKOUT_MINUTES = 15
 # accounts can't import the students-side one (see accounts.models.User docstring).
 EMAIL_CHANGE_CODE_MAX_ATTEMPTS = 5
 EMAIL_CHANGE_CODE_LOCKOUT_MINUTES = 15
+
+# FR-AUTH-05: lock a portal account out after this many consecutive wrong-password
+# attempts, for this long - same values/shape as the PIN and email-change lockouts,
+# resisting a brute-force password guess against a known username.
+LOGIN_MAX_ATTEMPTS = 5
+LOGIN_LOCKOUT_MINUTES = 15
 
 MESSAGE_TAGS = {
     messages.ERROR: 'danger',

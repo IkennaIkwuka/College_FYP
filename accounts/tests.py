@@ -81,6 +81,66 @@ class LoginTests(TestCase):
             self.client.login(username="not-a-real-account", password=settings.DEFAULT_PASSWORD)
         )
 
+    def test_login_with_punctuation_in_stored_username_still_works(self):
+        # A manually-created staff account (typed straight into /admin/) can have
+        # a username containing punctuation Django's validator allows (@/./+/-/_)
+        # rather than one derived from a slash-stripped matric/staff ID. The
+        # lenient-matching regex must not strip that punctuation away and miss it.
+        User.objects.create_user(username="j.smith_1", email="jsmith@example.com", password="pass12345")
+        self.assertTrue(self.client.login(username="j.smith_1", password="pass12345"))
+
+
+class LoginLockoutTests(TestCase):
+    """FR-AUTH-05: lock an account out after settings.LOGIN_MAX_ATTEMPTS consecutive
+    wrong-password attempts, same shape as the existing PIN/email-change lockouts."""
+
+    def setUp(self):
+        self.department = Department.objects.create(name="Computer Science")
+        self.profile = create_student_account(
+            matric_number="2023/CSC/032",
+            first_name="Amaka",
+            last_name="Obi",
+            email="amaka@example.com",
+            department=self.department,
+            entry_level=300,
+        )
+        self.username = self.profile.user.username
+
+    def test_lockout_after_max_failed_attempts(self):
+        for _ in range(settings.LOGIN_MAX_ATTEMPTS):
+            self.assertFalse(self.client.login(username=self.username, password="wrong-password"))
+        # Even the correct password is rejected once locked.
+        self.assertFalse(self.client.login(username=self.username, password=settings.DEFAULT_PASSWORD))
+        self.profile.user.refresh_from_db()
+        self.assertTrue(self.profile.user.is_login_locked)
+
+    def test_fewer_than_max_attempts_does_not_lock(self):
+        for _ in range(settings.LOGIN_MAX_ATTEMPTS - 1):
+            self.client.login(username=self.username, password="wrong-password")
+        self.assertTrue(self.client.login(username=self.username, password=settings.DEFAULT_PASSWORD))
+
+    def test_successful_login_resets_attempt_counter(self):
+        for _ in range(settings.LOGIN_MAX_ATTEMPTS - 1):
+            self.client.login(username=self.username, password="wrong-password")
+        self.assertTrue(self.client.login(username=self.username, password=settings.DEFAULT_PASSWORD))
+        self.profile.user.refresh_from_db()
+        self.assertEqual(self.profile.user.failed_login_attempts, 0)
+
+    def test_lockout_clears_after_cooldown(self):
+        user = self.profile.user
+        user.failed_login_attempts = settings.LOGIN_MAX_ATTEMPTS
+        user.login_locked_until = timezone.now() - timedelta(minutes=1)
+        user.save(update_fields=["failed_login_attempts", "login_locked_until"])
+        self.assertTrue(self.client.login(username=self.username, password=settings.DEFAULT_PASSWORD))
+
+    def test_inactive_account_correct_password_not_counted_as_failed_attempt(self):
+        user = self.profile.user
+        user.is_active = False
+        user.save(update_fields=["is_active"])
+        self.client.login(username=self.username, password=settings.DEFAULT_PASSWORD)
+        user.refresh_from_db()
+        self.assertEqual(user.failed_login_attempts, 0)
+
 
 class ForcedPasswordChangeTests(TestCase):
     def setUp(self):

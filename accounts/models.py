@@ -72,6 +72,11 @@ class User(AbstractUser):
     # When the email last actually changed - cooldown timestamp, same role as
     # preferred_username_changed_at above.
     email_changed_at = models.DateTimeField(null=True, blank=True)
+    # FR-AUTH-05: same hash-free lockout shape as email_change_attempts/
+    # email_change_locked_until above, but counting wrong-password attempts at
+    # login instead - checked/incremented in accounts.auth_backends.LenientUsernameBackend.
+    failed_login_attempts = models.PositiveSmallIntegerField(default=0)
+    login_locked_until = models.DateTimeField(null=True, blank=True)
 
     def __str__(self):
         # AbstractUser's default falls back to username, which is a stripped-down
@@ -152,6 +157,21 @@ class User(AbstractUser):
         self.email_change_attempts = 0
         self.email_change_locked_until = None
         self.save(update_fields=["email_change_attempts", "email_change_locked_until"])
+
+    @property
+    def is_login_locked(self):
+        return self.login_locked_until is not None and self.login_locked_until > timezone.now()
+
+    def register_failed_login_attempt(self):
+        self.failed_login_attempts += 1
+        if self.failed_login_attempts >= settings.LOGIN_MAX_ATTEMPTS:
+            self.login_locked_until = timezone.now() + timedelta(minutes=settings.LOGIN_LOCKOUT_MINUTES)
+        self.save(update_fields=["failed_login_attempts", "login_locked_until"])
+
+    def reset_login_attempts(self):
+        self.failed_login_attempts = 0
+        self.login_locked_until = None
+        self.save(update_fields=["failed_login_attempts", "login_locked_until"])
 
 
 class StaffIDSequence(models.Model):

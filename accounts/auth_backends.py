@@ -25,7 +25,16 @@ class LenientUsernameBackend(ModelBackend):
         cleaned = re.sub(r"[^A-Za-z0-9]", "", username)
         raw = username.strip()
         try:
-            user = UserModel._default_manager.get(Q(username__iexact=cleaned) | Q(preferred_username__iexact=raw))
+            # Match the stripped form (lenient matric-number typing) AND the
+            # exact-as-typed form (a manually-created staff username can itself
+            # legitimately contain punctuation Django's validator allows -
+            # @/./+/-/_ - e.g. one typed straight into /admin/accounts/user/add/,
+            # not derived from a slash-stripped matric/staff ID). Without the raw
+            # match, an account like "j.smith" could never log in, since the
+            # stripped form "jsmith" would never match the stored "j.smith".
+            user = UserModel._default_manager.get(
+                Q(username__iexact=raw) | Q(username__iexact=cleaned) | Q(preferred_username__iexact=raw)
+            )
         except UserModel.DoesNotExist:
             # Same timing-attack mitigation ModelBackend uses: still hash the
             # password even when there's no matching user, so response time
@@ -34,6 +43,24 @@ class LenientUsernameBackend(ModelBackend):
             return None
         except UserModel.MultipleObjectsReturned:
             return None
-        if user.check_password(password) and self.user_can_authenticate(user):
-            return user
+
+        # FR-AUTH-05: lock out after settings.LOGIN_MAX_ATTEMPTS consecutive wrong
+        # passwords. Lazily clear an expired lockout first, same pattern as the
+        # PIN/email-change lockouts - no cron needed, the next attempt after the
+        # cooldown passes just resets the counter here.
+        if user.login_locked_until is not None and not user.is_login_locked:
+            user.reset_login_attempts()
+
+        if user.is_login_locked:
+            return None
+
+        if user.check_password(password):
+            if self.user_can_authenticate(user):
+                user.reset_login_attempts()
+                return user
+            # Correct password but inactive account - not a wrong guess, don't
+            # count it against the lockout.
+            return None
+
+        user.register_failed_login_attempt()
         return None
