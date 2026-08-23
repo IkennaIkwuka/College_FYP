@@ -1,4 +1,5 @@
 venv/
+docs/
 db.sqlite3
 .claude/
 __pycache__/
