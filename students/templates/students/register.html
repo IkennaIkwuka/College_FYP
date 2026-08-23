@@ -14,4 +14,36 @@
             </form>
         </div>
     </div>
+
+    {{ entry_level_choices_by_admission_type|json_script:"entry-level-choices" }}
+    <script>
+        // Restricts the "level" dropdown to whatever's valid for the selected admission
+        // type (e.g. UTME can only be 100L) - students/forms.py::StudentAccountForm.clean()
+        // enforces the same rule server-side, since a disabled/removed <option> here is
+        // only a UX nicety and can't be trusted on its own.
+        (function () {
+            const choicesByAdmissionType = JSON.parse(document.getElementById("entry-level-choices").textContent);
+            const admissionTypeField = document.getElementById("id_admission_type");
+            const levelField = document.getElementById("id_level");
+
+            function refreshLevelOptions() {
+                const allowed = choicesByAdmissionType[admissionTypeField.value] || [];
+                const currentValue = levelField.value;
+                levelField.innerHTML = "";
+                allowed.forEach(function ([value, label]) {
+                    const option = document.createElement("option");
+                    option.value = value;
+                    option.textContent = label;
+                    levelField.appendChild(option);
+                });
+                const stillValid = allowed.some(([value]) => String(value) === currentValue);
+                if (stillValid) {
+                    levelField.value = currentValue;
+                }
+            }
+
+            admissionTypeField.addEventListener("change", refreshLevelOptions);
+            refreshLevelOptions();
+        })();
+    </script>
 {% endblock %}

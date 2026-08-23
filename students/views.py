@@ -15,12 +15,20 @@ from django.urls import reverse
 from django.utils import timezone
 
 from .forms import BulkImportForm, DepartmentForm, FacultyForm, StudentAccountForm, StudentEditForm, StudentProfileForm
-from .models import ADMISSION_TYPE_CHOICES, LEVEL_CHOICES, Department, Faculty, StudentProfile
+from .models import ADMISSION_TYPE_CHOICES, LEVEL_CHOICES, Department, Faculty, StudentProfile, entry_level_choices_for
 from .services import create_student_account, reset_student_pin, send_pin_email, sync_username_to_matric_number
 
 REQUIRED_COLUMNS = {"matric_number", "first_name", "last_name", "email", "department", "level"}
 OPTIONAL_COLUMNS = {"date_of_birth", "gender", "phone_number", "address"}
 VALID_LEVELS = {str(level) for level, _ in LEVEL_CHOICES}
+
+# Which entry levels the "level"/"entry_level" dropdown should offer for each admission
+# type - drives the client-side restriction in register.html/student_form.html. The
+# form's own clean() (students/forms.py) re-checks the same entry_level_choices_for()
+# server-side, since this map only narrows the dropdown's options in the browser.
+ENTRY_LEVEL_CHOICES_BY_ADMISSION_TYPE = {
+    admission_type: entry_level_choices_for(admission_type) for admission_type, _ in ADMISSION_TYPE_CHOICES
+}
 
 
 @registrar_required
@@ -51,7 +59,11 @@ def register(request):
     return render(
         request,
         "students/register.html",
-        {"form": form, "default_password": settings.DEFAULT_PASSWORD},
+        {
+            "form": form,
+            "default_password": settings.DEFAULT_PASSWORD,
+            "entry_level_choices_by_admission_type": ENTRY_LEVEL_CHOICES_BY_ADMISSION_TYPE,
+        },
     )
 
 
@@ -384,7 +396,15 @@ def student_edit(request, pk):
     else:
         form = StudentEditForm(instance=profile)
 
-    return render(request, "students/student_form.html", {"form": form, "profile": profile})
+    return render(
+        request,
+        "students/student_form.html",
+        {
+            "form": form,
+            "profile": profile,
+            "entry_level_choices_by_admission_type": ENTRY_LEVEL_CHOICES_BY_ADMISSION_TYPE,
+        },
+    )
 
 
 @student_required

@@ -28,6 +28,19 @@ ADMISSION_TYPE_CHOICES = [
     ("TRANSFER_INTER", "Transfer (Inter-Faculty)"),
 ]
 
+
+def entry_level_choices_for(admission_type):
+    """Which entry levels make sense for a given admission type - UTME candidates
+    always start at 100L, Direct Entry (A-Level/OND/HND equivalent) skips into 200L
+    or occasionally 300L, and a transfer's entry level depends entirely on how much
+    credit the other institution's records earn them, so it isn't constrained here.
+    """
+    if admission_type == "UTME":
+        return [c for c in LEVEL_CHOICES if c[0] == 100]
+    if admission_type == "DE":
+        return [c for c in LEVEL_CHOICES if c[0] in (200, 300)]
+    return LEVEL_CHOICES
+
 # NUC-standard programme lengths: 4 years for most social sciences/arts/management/
 # pure sciences, up to 6 for professional programmes (medicine, engineering) - not
 # every Nigerian university programme is the same length, so this is per-department,

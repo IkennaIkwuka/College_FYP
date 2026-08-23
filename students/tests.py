@@ -72,6 +72,63 @@ class RegisterViewTests(TestCase):
         # at first login (accounts:send_pin_code).
         self.assertEqual(len(mail.outbox), 0)
 
+    def test_utme_student_can_only_enter_at_100_level(self):
+        make_registrar()
+        self.client.login(username="reg1", password="pass12345")
+        response = self.client.post(
+            reverse("students:register"),
+            {
+                "first_name": "New", "last_name": "Student", "email": "new@example.com",
+                "matric_number": "2023/CSC/099", "department": self.department.id,
+                "level": 200, "admission_type": "UTME",
+            },
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(StudentProfile.objects.filter(matric_number="2023/CSC/099").exists())
+        self.assertContains(response, "UTME (Regular Entry) students must enter at: 100 Level.")
+
+    def test_direct_entry_student_can_enter_at_200_or_300(self):
+        make_registrar()
+        self.client.login(username="reg1", password="pass12345")
+        response = self.client.post(
+            reverse("students:register"),
+            {
+                "first_name": "New", "last_name": "Student", "email": "new@example.com",
+                "matric_number": "2023/CSC/099", "department": self.department.id,
+                "level": 300, "admission_type": "DE",
+            },
+        )
+        self.assertRedirects(response, reverse("students:register"))
+        self.assertTrue(StudentProfile.objects.filter(matric_number="2023/CSC/099").exists())
+
+    def test_direct_entry_student_cannot_enter_at_100(self):
+        make_registrar()
+        self.client.login(username="reg1", password="pass12345")
+        response = self.client.post(
+            reverse("students:register"),
+            {
+                "first_name": "New", "last_name": "Student", "email": "new@example.com",
+                "matric_number": "2023/CSC/099", "department": self.department.id,
+                "level": 100, "admission_type": "DE",
+            },
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(StudentProfile.objects.filter(matric_number="2023/CSC/099").exists())
+
+    def test_transfer_student_can_enter_at_any_level(self):
+        make_registrar()
+        self.client.login(username="reg1", password="pass12345")
+        response = self.client.post(
+            reverse("students:register"),
+            {
+                "first_name": "New", "last_name": "Student", "email": "new@example.com",
+                "matric_number": "2023/CSC/099", "department": self.department.id,
+                "level": 400, "admission_type": "TRANSFER_INTER",
+            },
+        )
+        self.assertRedirects(response, reverse("students:register"))
+        self.assertTrue(StudentProfile.objects.filter(matric_number="2023/CSC/099").exists())
+
 
 class BulkImportTests(TestCase):
     def setUp(self):
@@ -427,7 +484,7 @@ class ManageStudentsTests(TestCase):
                 "email": self.profile.user.email,
                 "matric_number": "2023/CSC/095",
                 "department": self.department.id,
-                "entry_level": 200,
+                "entry_level": 100,
                 "admission_type": "UTME",
                 "date_of_birth": "",
                 "gender": "",
@@ -439,6 +496,26 @@ class ManageStudentsTests(TestCase):
         self.profile.refresh_from_db()
         self.assertEqual(self.profile.phone_number, "08011112222")
 
+    def test_editing_to_an_invalid_admission_type_level_combo_is_rejected(self):
+        response = self.client.post(
+            reverse("students:student_edit", args=[self.profile.id]),
+            {
+                "first_name": self.profile.user.first_name,
+                "last_name": self.profile.user.last_name,
+                "email": self.profile.user.email,
+                "matric_number": self.profile.matric_number,
+                "department": self.department.id,
+                "entry_level": 500,
+                "admission_type": "UTME",
+                "date_of_birth": "",
+                "gender": "",
+                "phone_number": "",
+                "address": "",
+            },
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "UTME (Regular Entry) students must enter at: 100 Level.")
+
     def test_registrar_can_edit_student_name_and_email(self):
         response = self.client.post(
             reverse("students:student_edit", args=[self.profile.id]),
@@ -448,7 +525,7 @@ class ManageStudentsTests(TestCase):
                 "email": "updated.name@example.com",
                 "matric_number": self.profile.matric_number,
                 "department": self.department.id,
-                "entry_level": 200,
+                "entry_level": 100,
                 "admission_type": "UTME",
                 "date_of_birth": "",
                 "gender": "",
@@ -472,7 +549,7 @@ class ManageStudentsTests(TestCase):
                 "email": self.profile.user.email,
                 "matric_number": "2023/CSC/199",
                 "department": self.department.id,
-                "entry_level": 200,
+                "entry_level": 100,
                 "admission_type": "UTME",
                 "date_of_birth": "",
                 "gender": "",
@@ -496,7 +573,7 @@ class ManageStudentsTests(TestCase):
                 "email": self.profile.user.email,
                 "matric_number": self.profile.matric_number,
                 "department": self.department.id,
-                "entry_level": 200,
+                "entry_level": 100,
                 "admission_type": "UTME",
                 "date_of_birth": "",
                 "gender": "",

@@ -3,7 +3,7 @@ from accounts.models import User
 from django import forms
 from lu_sims.id_format import InvalidAcademicID, format_academic_id
 
-from .models import ADMISSION_TYPE_CHOICES, LEVEL_CHOICES, Department, Faculty, StudentProfile
+from .models import ADMISSION_TYPE_CHOICES, LEVEL_CHOICES, Department, Faculty, StudentProfile, entry_level_choices_for
 
 
 class StudentAccountForm(BootstrapFormMixin, forms.Form):
@@ -23,6 +23,20 @@ class StudentAccountForm(BootstrapFormMixin, forms.Form):
         if StudentProfile.objects.filter(matric_number=matric_number).exists():
             raise forms.ValidationError("A student with this matric number already exists.")
         return matric_number
+
+    def clean(self):
+        cleaned_data = super().clean()
+        admission_type = cleaned_data.get("admission_type")
+        level = cleaned_data.get("level")
+        if admission_type and level:
+            allowed = entry_level_choices_for(admission_type)
+            if int(level) not in {value for value, _ in allowed}:
+                allowed_labels = ", ".join(label for _, label in allowed)
+                self.add_error(
+                    "level",
+                    f"{dict(ADMISSION_TYPE_CHOICES)[admission_type]} students must enter at: {allowed_labels}.",
+                )
+        return cleaned_data
 
     def clean_email(self):
         email = self.cleaned_data["email"].strip().lower()
@@ -103,6 +117,20 @@ class StudentEditForm(BootstrapFormMixin, forms.ModelForm):
         if User.objects.exclude(pk=self.instance.user_id).filter(email__iexact=email).exists():
             raise forms.ValidationError("A user with this email already exists.")
         return email
+
+    def clean(self):
+        cleaned_data = super().clean()
+        admission_type = cleaned_data.get("admission_type")
+        entry_level = cleaned_data.get("entry_level")
+        if admission_type and entry_level:
+            allowed = entry_level_choices_for(admission_type)
+            if int(entry_level) not in {value for value, _ in allowed}:
+                allowed_labels = ", ".join(label for _, label in allowed)
+                self.add_error(
+                    "entry_level",
+                    f"{dict(ADMISSION_TYPE_CHOICES)[admission_type]} students must enter at: {allowed_labels}.",
+                )
+        return cleaned_data
 
     def save(self, commit=True):
         profile = super().save(commit=False)
