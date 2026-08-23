@@ -239,6 +239,28 @@ class ManageCoursesTests(TestCase):
         self.assertContains(response, "CSC304")
         self.assertNotContains(response, "CSC301")
 
+    def test_defaults_to_current_semester(self):
+        # settings.CURRENT_SEMESTER is "first" - with no explicit filter, a
+        # next-semester course shouldn't show up alongside this semester's.
+        Course.objects.create(
+            code="CSC304", title="Compilers", units=3,
+            department=self.department, level=300, semester="second",
+        )
+        response = self.client.get(reverse("courses:manage_courses"))
+        self.assertContains(response, "CSC301")
+        self.assertNotContains(response, "CSC304")
+
+    def test_explicit_all_semesters_filter_still_shows_everything(self):
+        # The default narrows to the current semester, but an HOD can still
+        # deliberately ask to see every semester via the "All semesters" option.
+        Course.objects.create(
+            code="CSC304", title="Compilers", units=3,
+            department=self.department, level=300, semester="second",
+        )
+        response = self.client.get(reverse("courses:manage_courses"), {"semester": ""})
+        self.assertContains(response, "CSC301")
+        self.assertContains(response, "CSC304")
+
     def test_filter_by_active_status(self):
         inactive = Course.objects.create(
             code="CSC199", title="Retired", units=3,
@@ -525,3 +547,14 @@ class MyCoursesTests(TestCase):
         self.client.login(username="admin", password="pass12345")
         response = self.client.get(reverse("courses:my_courses"))
         self.assertEqual(response.status_code, 403)
+
+    def test_only_shows_current_semester_courses(self):
+        # settings.CURRENT_SEMESTER is "first" - a course sitting in the semester
+        # that hasn't started yet shouldn't show up in the day-to-day course list at all.
+        Course.objects.create(
+            code="CSC302", title="Not Yet", units=3,
+            department=self.department, level=300, semester="second", lecturer=self.lecturer,
+        )
+        response = self.client.get(reverse("courses:my_courses"))
+        self.assertContains(response, "CSC301")
+        self.assertNotContains(response, "CSC302")

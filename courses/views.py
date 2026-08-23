@@ -99,7 +99,10 @@ def my_registrations(request):
 
 @lecturer_required
 def my_courses(request):
-    courses = Course.objects.filter(lecturer=request.user)
+    # Hard-filtered to the current semester, no override - a course sitting in a
+    # semester that hasn't started yet has nothing actionable about it yet (no
+    # exams run, nothing to enter results for), so it shouldn't be listed at all.
+    courses = Course.objects.filter(lecturer=request.user, semester=settings.CURRENT_SEMESTER)
     return render(request, "courses/my_courses.html", {"courses": courses})
 
 
@@ -121,7 +124,14 @@ def _filtered_hod_courses(request, department):
     if query:
         courses = courses.filter(Q(code__icontains=query) | Q(title__icontains=query))
     selected_level = request.GET.get("level", "").strip()
-    selected_semester = request.GET.get("semester", "").strip()
+    # No "semester" param at all means "just loaded the page" - default that case to
+    # the current semester (matching how registration already works) rather than
+    # showing every semester mixed together. An explicit ?semester= (including the
+    # deliberate "All semesters" choice, which posts semester="") still overrides it.
+    if "semester" in request.GET:
+        selected_semester = request.GET.get("semester", "").strip()
+    else:
+        selected_semester = settings.CURRENT_SEMESTER
     selected_is_active = request.GET.get("is_active", "").strip()
     if selected_level:
         courses = courses.filter(level=selected_level)

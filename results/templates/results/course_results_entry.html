@@ -15,7 +15,9 @@
         {% endif %}
     </div>
 
-    {% if is_hod_here %}
+    {% if not is_current_semester %}
+        <div class="alert alert-warning">Results entry is not open for {{ course.get_semester_display|lower }} yet - it isn't the current semester, so nothing here has happened to have a result yet.</div>
+    {% elif is_hod_here %}
         <p class="text-muted">Enter or correct final scores for any course in your department. A score is final the moment it's saved - there's no separate publish step, since real approval already happened offline before results reach the portal.</p>
     {% else %}
         <p class="text-muted">Enter final scores. A score is final the moment it's saved. Once a score is entered, only your HOD can correct it - mirrors the real process of forwarding a result once it's out of your hands.</p>
@@ -53,8 +55,12 @@
                             <td style="max-width: 160px;">
                                 {{ row.form.registration_id }}
                                 {% if row.locked %}
-                                    {{ row.registration.result.score }}
-                                    <div class="text-muted small">Locked - HOD only</div>
+                                    {{ row.registration.result.score|default:"-" }}
+                                    {% if row.locked_reason == "semester" %}
+                                        <div class="text-muted small">Not open yet</div>
+                                    {% else %}
+                                        <div class="text-muted small">Locked - HOD only</div>
+                                    {% endif %}
                                 {% else %}
                                     {{ row.form.score }}
                                     {% for error in row.form.score.errors %}
@@ -67,7 +73,9 @@
                     {% endfor %}
                 </tbody>
             </table>
-            <button type="submit" class="btn btn-primary">Save Results</button>
+            {% if is_current_semester %}
+                <button type="submit" class="btn btn-primary">Save Results</button>
+            {% endif %}
         </form>
     {% else %}
         <p class="text-muted">No students are registered for {{ course.code }} in {{ session }} yet - nothing to enter until registration happens for that session.</p>

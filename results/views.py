@@ -41,6 +41,13 @@ def course_results_entry(request, pk):
     if not (is_hod_here or is_owning_lecturer):
         raise PermissionDenied("You are not authorized to enter results for this course.")
 
+    # A course sitting in a semester that isn't the current one hasn't happened yet -
+    # no exams run, nothing offline to have approved, so nothing here is enterable for
+    # anyone yet. My Courses/Manage Courses already hide these by default, but this is
+    # the actual enforcement point (an HOD's explicit "All semesters" filter, or a
+    # stale/bookmarked link, could still reach this URL directly).
+    is_current_semester = course.semester == settings.CURRENT_SEMESTER
+
     sessions = list(course.registrations.values_list("session", flat=True).distinct().order_by("-session"))
     if settings.CURRENT_SESSION not in sessions:
         sessions.insert(0, settings.CURRENT_SESSION)
@@ -51,6 +58,10 @@ def course_results_entry(request, pk):
         .select_related("student__user", "result")
         .order_by("student__matric_number")
     )
+
+    if request.method == "POST" and not is_current_semester:
+        messages.error(request, "Results entry is only open for the current semester's courses.")
+        return redirect(f"{request.path}?session={session}")
 
     if request.method == "POST":
         formset = ScoreEntryFormSet(request.POST)
@@ -91,14 +102,18 @@ def course_results_entry(request, pk):
         ]
         formset = ScoreEntryFormSet(initial=initial)
 
-    rows = [
-        {
-            "registration": registration,
-            "form": form,
-            "locked": hasattr(registration, "result") and not is_hod_here,
-        }
-        for registration, form in zip(roster, formset.forms)
-    ]
+    rows = []
+    for registration, form in zip(roster, formset.forms):
+        has_result = hasattr(registration, "result")
+        if not is_current_semester:
+            locked, locked_reason = True, "semester"
+        elif has_result and not is_hod_here:
+            locked, locked_reason = True, "hod_only"
+        else:
+            locked, locked_reason = False, None
+        rows.append(
+            {"registration": registration, "form": form, "locked": locked, "locked_reason": locked_reason}
+        )
 
     return render(
         request,
@@ -110,6 +125,7 @@ def course_results_entry(request, pk):
             "sessions": sessions,
             "session": session,
             "is_hod_here": is_hod_here,
+            "is_current_semester": is_current_semester,
         },
     )
 

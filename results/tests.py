@@ -203,6 +203,41 @@ class CourseResultsEntryTests(TestCase):
         self.assertFalse(response.context["rows"][0]["locked"])
 
 
+class NonCurrentSemesterCourseResultsEntryTests(TestCase):
+    # settings.CURRENT_SEMESTER is "first" - a course sitting in "second" hasn't
+    # had its semester happen yet, so nothing about it should be enterable, for
+    # anyone, regardless of the usual Lecturer/HOD permission split.
+    def setUp(self):
+        self.department = Department.objects.create(name="Computer Science")
+        self.lecturer = make_lecturer("lect1")
+        self.hod = make_hod("hod1", department=self.department)
+        self.student = make_student("2023/CSC/001", self.department, 300)
+
+        self.course = Course.objects.create(
+            code="CSC302", title="Compilers", units=3,
+            department=self.department, level=300, semester="second", lecturer=self.lecturer,
+        )
+        self.registration = CourseRegistration.objects.create(
+            student=self.student, course=self.course, session="2025/2026", semester="second",
+        )
+        self.url = reverse("results:course_results_entry", args=[self.course.id])
+
+    def test_lecturer_cannot_enter_score(self):
+        self.client.login(username="lect1", password="pass12345")
+        self.client.post(f"{self.url}?session=2025/2026", _formset_post_data([(self.registration.id, 75)]))
+        self.assertFalse(Result.objects.filter(registration=self.registration).exists())
+
+    def test_hod_cannot_enter_score(self):
+        self.client.login(username="hod1", password="pass12345")
+        self.client.post(f"{self.url}?session=2025/2026", _formset_post_data([(self.registration.id, 75)]))
+        self.assertFalse(Result.objects.filter(registration=self.registration).exists())
+
+    def test_entry_page_shows_locked_notice(self):
+        self.client.login(username="lect1", password="pass12345")
+        response = self.client.get(f"{self.url}?session=2025/2026")
+        self.assertContains(response, "not open")
+
+
 class MyResultsTests(TestCase):
     def setUp(self):
         self.department = Department.objects.create(name="Computer Science")
