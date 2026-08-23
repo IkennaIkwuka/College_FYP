@@ -519,7 +519,7 @@ class ManageStudentsTests(TestCase):
                 "address": "Awka",
             },
         )
-        self.assertRedirects(response, reverse("students:manage_students"))
+        self.assertRedirects(response, reverse("students:student_detail", args=[self.profile.id]))
         self.profile.refresh_from_db()
         self.assertEqual(self.profile.phone_number, "08011112222")
 
@@ -560,7 +560,7 @@ class ManageStudentsTests(TestCase):
                 "address": "",
             },
         )
-        self.assertRedirects(response, reverse("students:manage_students"))
+        self.assertRedirects(response, reverse("students:student_detail", args=[self.profile.id]))
         self.profile.refresh_from_db()
         self.assertEqual(self.profile.user.first_name, "Updated")
         self.assertEqual(self.profile.user.last_name, "Name")
@@ -584,7 +584,7 @@ class ManageStudentsTests(TestCase):
                 "address": "",
             },
         )
-        self.assertRedirects(response, reverse("students:manage_students"))
+        self.assertRedirects(response, reverse("students:student_detail", args=[self.profile.id]))
         self.profile.refresh_from_db()
         self.assertEqual(self.profile.matric_number, "2023/CSC/199")
         self.assertEqual(self.profile.user.username, "2023csc199")
@@ -608,7 +608,7 @@ class ManageStudentsTests(TestCase):
                 "address": "Awka",
             },
         )
-        self.assertRedirects(response, reverse("students:manage_students"))
+        self.assertRedirects(response, reverse("students:student_detail", args=[self.profile.id]))
         self.profile.refresh_from_db()
         self.assertEqual(self.profile.user.username, old_username)
 
@@ -619,4 +619,18 @@ class ManageStudentsTests(TestCase):
         self.assertEqual(
             self.client.get(reverse("students:student_edit", args=[self.profile.id])).status_code, 403
         )
+        self.assertEqual(
+            self.client.get(reverse("students:student_detail", args=[self.profile.id])).status_code, 403
+        )
         self.assertEqual(self.client.get(reverse("students:bulk_import")).status_code, 403)
+
+    def test_student_detail_shows_read_only_record(self):
+        response = self.client.get(reverse("students:student_detail", args=[self.profile.id]))
+        self.assertContains(response, "Ifeoma")
+        self.assertContains(response, self.profile.matric_number)
+        self.assertContains(response, self.profile.department.name)
+        self.assertContains(response, "Edit")
+
+    def test_manage_students_list_links_to_detail_not_edit(self):
+        response = self.client.get(reverse("students:manage_students"))
+        self.assertContains(response, reverse("students:student_detail", args=[self.profile.id]))

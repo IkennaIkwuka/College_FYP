@@ -22,5 +22,6 @@ urlpatterns = [
     path("manage/departments/<int:pk>/edit/", views.department_edit, name="department_edit"),
     path("manage/students/", views.manage_students, name="manage_students"),
     path("manage/students/search/", views.student_search_suggestions, name="student_search_suggestions"),
+    path("manage/students/<int:pk>/", views.student_detail, name="student_detail"),
     path("manage/students/<int:pk>/edit/", views.student_edit, name="student_edit"),
 ]

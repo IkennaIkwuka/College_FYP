@@ -387,9 +387,15 @@ def student_search_suggestions(request):
                 "label": f"{profile.matric_number} — {profile.user.get_full_name() or profile.user.username}",
                 "sublabel": profile.department.name if profile.department else "",
                 "value": profile.matric_number,
-                "url": reverse("students:student_edit", args=[profile.id]),
+                "url": reverse("students:student_detail", args=[profile.id]),
             })
     return JsonResponse({"results": results})
+
+
+@registrar_required
+def student_detail(request, pk):
+    profile = get_object_or_404(StudentProfile.objects.select_related("user", "department"), pk=pk)
+    return render(request, "students/student_detail.html", {"profile": profile})
 
 
 @registrar_required
@@ -407,7 +413,7 @@ def student_edit(request, pk):
                 )
             else:
                 messages.success(request, f"Updated {profile.matric_number}.")
-            return redirect("students:manage_students")
+            return redirect("students:student_detail", pk=profile.id)
     else:
         form = StudentEditForm(instance=profile)
 

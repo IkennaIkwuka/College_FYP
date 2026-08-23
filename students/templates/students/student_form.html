@@ -3,16 +3,71 @@
 {% block title %}Edit {{ profile.matric_number }} - LU-SIMS{% endblock %}
 
 {% block content %}
-    <h1>Edit {{ profile.matric_number }}</h1>
-    <div class="card">
-        <div class="card-body">
-            <form method="post">
-                {% csrf_token %}
-                {{ form.as_p }}
-                <button type="submit" class="btn btn-primary">Save</button>
-            </form>
-        </div>
+    <div class="d-flex justify-content-between align-items-center">
+        <h1>Edit {{ profile.matric_number }}</h1>
+        <a href="{% url 'students:student_detail' profile.id %}" class="btn btn-outline-secondary">Back to Student</a>
     </div>
+
+    {% if form.non_field_errors %}
+        <div class="alert alert-danger">{{ form.non_field_errors }}</div>
+    {% endif %}
+
+    <form method="post">
+        {% csrf_token %}
+
+        <div class="card mb-4">
+            <div class="card-body">
+                <h2 class="h5">Account Details</h2>
+                {% for field in form %}
+                    {% if field.name == "first_name" or field.name == "last_name" or field.name == "email" %}
+                        <div class="mb-3">
+                            <label for="{{ field.id_for_label }}" class="form-label">{{ field.label }}</label>
+                            {{ field }}
+                            {% for error in field.errors %}
+                                <div class="text-danger small">{{ error }}</div>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="card mb-4">
+            <div class="card-body">
+                <h2 class="h5">Academic Details</h2>
+                {% for field in form %}
+                    {% if field.name == "matric_number" or field.name == "department" or field.name == "entry_level" or field.name == "admission_type" %}
+                        <div class="mb-3">
+                            <label for="{{ field.id_for_label }}" class="form-label">{{ field.label }}</label>
+                            {{ field }}
+                            {% for error in field.errors %}
+                                <div class="text-danger small">{{ error }}</div>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="card mb-4">
+            <div class="card-body">
+                <h2 class="h5">Personal Details</h2>
+                {% for field in form %}
+                    {% if field.name == "date_of_birth" or field.name == "gender" or field.name == "phone_number" or field.name == "address" %}
+                        <div class="mb-3">
+                            <label for="{{ field.id_for_label }}" class="form-label">{{ field.label }}</label>
+                            {{ field }}
+                            {% for error in field.errors %}
+                                <div class="text-danger small">{{ error }}</div>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+                {% endfor %}
+            </div>
+        </div>
+
+        <button type="submit" class="btn btn-primary">Save</button>
+    </form>
 
     {{ entry_level_choices_by_admission_type|json_script:"entry-level-choices" }}
     <script>

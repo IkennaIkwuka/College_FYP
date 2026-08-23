@@ -48,7 +48,7 @@
                         <td>{{ profile.department }}</td>
                         <td>{{ profile.current_level_display }}</td>
                         <td class="text-end">
-                            <a href="{% url 'students:student_edit' profile.id %}" class="btn btn-outline-secondary btn-sm">Edit</a>
+                            <a href="{% url 'students:student_detail' profile.id %}" class="btn btn-outline-secondary btn-sm">View</a>
                         </td>
                     </tr>
                 {% endfor %}
