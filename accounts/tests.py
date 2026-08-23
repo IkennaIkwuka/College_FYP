@@ -3,6 +3,7 @@ from datetime import timedelta
 
 from django.conf import settings
 from django.contrib.auth.models import Group
+from django.contrib.sessions.models import Session
 from django.core import mail
 from django.test import TestCase
 from django.urls import reverse
@@ -88,6 +89,36 @@ class LoginTests(TestCase):
         # lenient-matching regex must not strip that punctuation away and miss it.
         User.objects.create_user(username="j.smith_1", email="jsmith@example.com", password="pass12345")
         self.assertTrue(self.client.login(username="j.smith_1", password="pass12345"))
+
+
+class SessionExpiryTests(TestCase):
+    """FR-AUTH-06: a session idle for 15 minutes stops being valid - same
+    settings.LOGIN_LOCKOUT_MINUTES-style value as the other lockouts, applied to
+    Django's own session-expiry mechanism rather than a custom field."""
+
+    def setUp(self):
+        # make_lecturer, not a freshly created student - a new student account
+        # has must_change_password=True and would get redirected into the forced
+        # password-change flow, which is unrelated to what's being tested here.
+        self.user = make_lecturer(username="sessionexp1")
+        self.client.login(username="sessionexp1", password="pass12345")
+
+    def test_still_logged_in_within_window(self):
+        response = self.client.get(reverse("dashboard"))
+        self.assertEqual(response.status_code, 200)
+
+    def test_session_expires_after_idle_period(self):
+        session = Session.objects.get(session_key=self.client.session.session_key)
+        session.expire_date = timezone.now() - timedelta(minutes=1)
+        session.save(update_fields=["expire_date"])
+
+        response = self.client.get(reverse("dashboard"))
+        self.assertRedirects(response, f"{reverse('login')}?next={reverse('dashboard')}")
+
+    def test_activity_extends_the_window(self):
+        self.client.get(reverse("dashboard"))
+        session = Session.objects.get(session_key=self.client.session.session_key)
+        self.assertGreater(session.expire_date, timezone.now() + timedelta(minutes=settings.SESSION_IDLE_TIMEOUT_MINUTES - 1))
 
 
 class LoginLockoutTests(TestCase):

@@ -140,6 +140,16 @@ EMAIL_CHANGE_CODE_LOCKOUT_MINUTES = 15
 LOGIN_MAX_ATTEMPTS = 5
 LOGIN_LOCKOUT_MINUTES = 15
 
+# FR-AUTH-06: log a session out after this many minutes of no activity - protects
+# whoever forgets to click "Log out" on a shared/cybercafe computer. SESSION_COOKIE_AGE
+# is Django's own session-lifetime setting (in seconds); SESSION_SAVE_EVERY_REQUEST
+# makes it a sliding/idle timeout rather than a fixed one - every request re-saves
+# the session and resets its expiry clock, so it's 15 minutes of inactivity, not
+# 15 minutes total regardless of activity.
+SESSION_IDLE_TIMEOUT_MINUTES = 15
+SESSION_COOKIE_AGE = SESSION_IDLE_TIMEOUT_MINUTES * 60
+SESSION_SAVE_EVERY_REQUEST = True
+
 MESSAGE_TAGS = {
     messages.ERROR: 'danger',
 }
