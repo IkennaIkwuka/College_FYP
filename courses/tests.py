@@ -50,8 +50,11 @@ def make_student(matric_number, department, level):
         department=department,
         entry_level=level,
     )
+    # Real password required now that must_change_password=False (see
+    # accounts.models.User.skips_first_login_password).
+    profile.user.set_password("pass12345")
     profile.user.must_change_password = False
-    profile.user.save(update_fields=["must_change_password"])
+    profile.user.save(update_fields=["password", "must_change_password"])
     return profile
 
 
@@ -82,7 +85,7 @@ class RegisterViewTests(TestCase):
             department=self.department, level=300, semester="second",
         )
 
-        self.client.login(username=self.profile.user.username, password=settings.DEFAULT_PASSWORD)
+        self.client.login(username=self.profile.user.username, password="pass12345")
 
     def test_get_shows_course_list_directly(self):
         response = self.client.get(reverse("courses:register"))
@@ -127,7 +130,7 @@ class RegisterViewTests(TestCase):
 
     def test_registration_follows_current_level_not_entry_level(self):
         freshman = make_student("2023/CSC/003", self.department, 100)
-        self.client.login(username=freshman.user.username, password=settings.DEFAULT_PASSWORD)
+        self.client.login(username=freshman.user.username, password="pass12345")
 
         with override_settings(CURRENT_SESSION="2027/2028"):
             # Two sessions later, entry_level 100 -> current_level 300 - the 300-level
@@ -190,7 +193,7 @@ class MyRegistrationsViewTests(TestCase):
         CourseRegistration.objects.create(
             student=self.profile, course=self.course, session=settings.CURRENT_SESSION, semester="first"
         )
-        self.client.login(username=self.profile.user.username, password=settings.DEFAULT_PASSWORD)
+        self.client.login(username=self.profile.user.username, password="pass12345")
 
     def test_lists_own_registrations(self):
         response = self.client.get(reverse("courses:my_registrations"))
@@ -370,7 +373,7 @@ class ManageCoursesTests(TestCase):
         self.own_course.refresh_from_db()
         self.assertFalse(self.own_course.is_active)
 
-        self.client.login(username=student.user.username, password=settings.DEFAULT_PASSWORD)
+        self.client.login(username=student.user.username, password="pass12345")
         response = self.client.get(reverse("courses:register"))
         available = set(response.context["form"].fields["courses"].queryset)
         self.assertNotIn(self.own_course, available)

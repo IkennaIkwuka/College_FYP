@@ -3,8 +3,6 @@ import io
 
 from accounts.decorators import admin_required, registrar_required, student_required
 from accounts.forms import PreferredUsernameForm
-from accounts.services import force_password_reset
-from django.conf import settings
 from django.contrib import messages
 from django.core.paginator import Paginator
 from django.db import transaction
@@ -16,7 +14,13 @@ from django.utils import timezone
 
 from .forms import BulkImportForm, DepartmentForm, FacultyForm, StudentAccountForm, StudentEditForm, StudentProfileForm
 from .models import ADMISSION_TYPE_CHOICES, LEVEL_CHOICES, Department, Faculty, StudentProfile, entry_level_choices_for
-from .services import create_student_account, reset_student_pin, send_pin_email, sync_username_to_matric_number
+from .services import (
+    create_student_account,
+    reset_student_first_login,
+    reset_student_pin,
+    send_pin_email,
+    sync_username_to_matric_number,
+)
 
 REQUIRED_COLUMNS = {"matric_number", "first_name", "last_name", "email", "department", "level", "admission_type"}
 OPTIONAL_COLUMNS = {"date_of_birth", "gender", "phone_number", "address"}
@@ -48,9 +52,9 @@ def register(request):
             messages.success(
                 request,
                 f"Student {form.cleaned_data['matric_number']} added. "
-                f'Their username is "{profile.user.username}"; '
-                f'initial password is "{settings.DEFAULT_PASSWORD}". '
-                "They'll request a verification code themselves at first login.",
+                f'Their username is "{profile.user.username}" - no password needed '
+                "for their first login. They'll request a verification code "
+                "themselves once they log in.",
             )
             return redirect("students:register")
     else:
@@ -61,7 +65,6 @@ def register(request):
         "students/register.html",
         {
             "form": form,
-            "default_password": settings.DEFAULT_PASSWORD,
             "entry_level_choices_by_admission_type": ENTRY_LEVEL_CHOICES_BY_ADMISSION_TYPE,
         },
     )
@@ -185,11 +188,7 @@ def bulk_import(request):
     else:
         form = BulkImportForm()
 
-    return render(
-        request,
-        "students/bulk_import.html",
-        {"form": form, "default_password": settings.DEFAULT_PASSWORD},
-    )
+    return render(request, "students/bulk_import.html", {"form": form})
 
 
 @admin_required
@@ -223,11 +222,12 @@ def student_force_password_reset(request, pk):
     profile = get_object_or_404(StudentProfile, pk=pk)
 
     if request.method == "POST":
-        force_password_reset(profile.user)
+        reset_student_first_login(profile.user)
         messages.success(
             request,
-            f"Password reset for {profile.matric_number}. They'll need to log in with the "
-            f'default password ("{settings.DEFAULT_PASSWORD}") and set a new one.',
+            f"Password reset for {profile.matric_number}. They can log in again with "
+            "just their username - no password needed - and will go through PIN "
+            "verification again before setting a new one.",
         )
     return _back_to_lookup(profile)
 

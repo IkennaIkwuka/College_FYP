@@ -20,13 +20,25 @@ def send_pin_email(profile, raw_pin):
         message=(
             f"Matric number: {profile.matric_number}\n"
             f"PIN: {raw_pin}\n\n"
-            f'Log in with your username "{profile.user.username}" and the '
-            f'default password "{settings.DEFAULT_PASSWORD}", then enter this '
-            "PIN when prompted to verify it's you."
+            f'Log in with just your username "{profile.user.username}" (no '
+            "password needed the first time), then enter this PIN when prompted "
+            "to verify it's you."
         ),
         from_email=None,
         recipient_list=[profile.user.email],
     )
+
+
+def reset_student_first_login(user):
+    """Puts a student's account back into the same passwordless-first-login state
+    a freshly created one starts in - the student-specific counterpart to
+    accounts.services.force_password_reset, which stays on the shared-password
+    scheme for staff. Kept here rather than as a branch in that shared function,
+    since accounts can't know about a student-only login scheme.
+    """
+    user.set_unusable_password()
+    user.must_change_password = True
+    user.save(update_fields=["password", "must_change_password"])
 
 
 def derive_student_username(matric_number):
@@ -65,10 +77,14 @@ def create_student_account(*, matric_number, first_name, last_name, email, depar
         email=email,
         first_name=first_name,
         last_name=last_name,
-        password=settings.DEFAULT_PASSWORD,
     )
+    # No real password is ever set - a student's first login goes through
+    # User.skips_first_login_password instead, since the PIN emailed to their
+    # registered address is already a stronger identity check than a password
+    # every new account would otherwise share.
+    user.set_unusable_password()
     user.must_change_password = True
-    user.save(update_fields=["must_change_password"])
+    user.save(update_fields=["password", "must_change_password"])
 
     student_group = Group.objects.get(name=STUDENT_GROUP)
     user.groups.add(student_group)

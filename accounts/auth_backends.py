@@ -44,6 +44,12 @@ class LenientUsernameBackend(ModelBackend):
         except UserModel.MultipleObjectsReturned:
             return None
 
+        # A student who hasn't finished first-login setup skips the password check
+        # entirely - see User.skips_first_login_password for why this is safe.
+        # Whatever was typed (blank or otherwise) is irrelevant for this branch.
+        if user.skips_first_login_password:
+            return user
+
         # FR-AUTH-05: lock out after settings.LOGIN_MAX_ATTEMPTS consecutive wrong
         # passwords. Lazily clear an expired lockout first, same pattern as the
         # PIN/email-change lockouts - no cron needed, the next attempt after the

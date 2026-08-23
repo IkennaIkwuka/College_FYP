@@ -153,7 +153,7 @@ class CourseResultsEntryTests(TestCase):
         self.assertEqual(response.status_code, 403)
 
     def test_student_forbidden(self):
-        self.client.login(username=self.student.user.username, password=settings.DEFAULT_PASSWORD)
+        self.client.login(username=self.student.user.username, password="pass12345")
         response = self.client.get(self.url)
         self.assertEqual(response.status_code, 403)
 
@@ -269,7 +269,7 @@ class MyResultsTests(TestCase):
         Result.objects.create(registration=other_reg, score=40)
 
     def test_student_sees_own_results_with_correct_cgpa(self):
-        self.client.login(username=self.student.user.username, password=settings.DEFAULT_PASSWORD)
+        self.client.login(username=self.student.user.username, password="pass12345")
         response = self.client.get(reverse("results:my_results"))
         self.assertContains(response, "CSC301")
         self.assertContains(response, "CSC303")
@@ -278,7 +278,7 @@ class MyResultsTests(TestCase):
         self.assertEqual(response.context["classification"], "Second Class Honours (Upper Division)")
 
     def test_does_not_see_other_students_results(self):
-        self.client.login(username=self.student.user.username, password=settings.DEFAULT_PASSWORD)
+        self.client.login(username=self.student.user.username, password="pass12345")
         response = self.client.get(reverse("results:my_results"))
         self.assertNotContains(response, "2023/CSC/002")
 

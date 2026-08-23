@@ -360,14 +360,6 @@ class PortalLoginView(auth_views.LoginView):
     template_name = "accounts/login.html"
     authentication_form = LoginForm
 
-    def get_context_data(self, **kwargs):
-        # LoginView doesn't know about DEFAULT_PASSWORD on its own - this just
-        # hands it to the template so the "first time logging in?" tip stays in sync
-        # with whatever the setting is currently bumped to, instead of being hardcoded.
-        context = super().get_context_data(**kwargs)
-        context["default_password"] = settings.DEFAULT_PASSWORD
-        return context
-
 
 class ForcedPasswordChangeView(auth_views.PasswordChangeView):
     template_name = "accounts/change_password.html"

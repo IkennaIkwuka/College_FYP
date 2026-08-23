@@ -173,6 +173,18 @@ class User(AbstractUser):
         self.login_locked_until = None
         self.save(update_fields=["failed_login_attempts", "login_locked_until"])
 
+    @property
+    def skips_first_login_password(self):
+        # A student who hasn't finished first-login setup already has a stronger
+        # identity check ahead of them (the PIN emailed to their registered
+        # address, enforced by accounts.middleware.ForcePasswordChangeMiddleware,
+        # which locks this account to exactly 4 URLs until that PIN is verified) -
+        # so requiring a password here too is redundant, not protective. Staff
+        # have no equivalent check, so they're deliberately excluded - see
+        # LenientUsernameBackend.authenticate(), which is the only place this
+        # property is actually consulted.
+        return self.must_change_password and getattr(self, "student_profile", None) is not None
+
 
 class StaffIDSequence(models.Model):
     """Per-role-per-year counter driving staff IDs like "LU-RG-26-0001".

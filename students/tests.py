@@ -151,7 +151,7 @@ class BulkImportTests(TestCase):
         self.assertEqual(StudentProfile.objects.count(), 2)
 
         student = StudentProfile.objects.get(matric_number="2023/CSC/001")
-        self.assertTrue(student.user.check_password(settings.DEFAULT_PASSWORD))
+        self.assertFalse(student.user.has_usable_password())
         self.assertTrue(student.user.must_change_password)
         self.assertTrue(student.user.groups.filter(name="Student").exists())
         self.assertEqual(student.admission_type, "DE")
@@ -234,7 +234,9 @@ class LookupTests(TestCase):
             response, f"{reverse('students:lookup')}?matric_number={self.profile.matric_number}"
         )
         self.profile.user.refresh_from_db()
-        self.assertTrue(self.profile.user.check_password(settings.DEFAULT_PASSWORD))
+        # No password is set at all now - the student logs back in with just their
+        # username (see students.services.reset_student_first_login).
+        self.assertFalse(self.profile.user.has_usable_password())
         self.assertTrue(self.profile.user.must_change_password)
 
     def test_admin_can_reset_student_pin(self):
@@ -349,9 +351,10 @@ class DepartmentManagementTests(TestCase):
             matric_number="2023/CSC/090", first_name="A", last_name="B",
             email="ab@example.com", department=self.department, entry_level=100,
         )
+        student.user.set_password("pass12345")
         student.user.must_change_password = False
-        student.user.save(update_fields=["must_change_password"])
-        self.client.login(username=student.user.username, password=settings.DEFAULT_PASSWORD)
+        student.user.save(update_fields=["password", "must_change_password"])
+        self.client.login(username=student.user.username, password="pass12345")
         for name in ["students:manage_departments", "students:department_add"]:
             self.assertEqual(self.client.get(reverse(name)).status_code, 403, name)
         self.assertEqual(
@@ -395,9 +398,10 @@ class FacultyManagementTests(TestCase):
             matric_number="2023/PHY/090", first_name="A", last_name="B",
             email="ab_phy@example.com", department=department, entry_level=100,
         )
+        student.user.set_password("pass12345")
         student.user.must_change_password = False
-        student.user.save(update_fields=["must_change_password"])
-        self.client.login(username=student.user.username, password=settings.DEFAULT_PASSWORD)
+        student.user.save(update_fields=["password", "must_change_password"])
+        self.client.login(username=student.user.username, password="pass12345")
         for name in ["students:manage_faculties", "students:faculty_add"]:
             self.assertEqual(self.client.get(reverse(name)).status_code, 403, name)
         self.assertEqual(
@@ -415,9 +419,10 @@ class MyProfileTests(TestCase):
             matric_number="2023/CSC/091", first_name="Chidi", last_name="Nwosu",
             email="chidi91@example.com", department=self.department, entry_level=200,
         )
+        self.profile.user.set_password("pass12345")
         self.profile.user.must_change_password = False
-        self.profile.user.save(update_fields=["must_change_password"])
-        self.client.login(username=self.profile.user.username, password=settings.DEFAULT_PASSWORD)
+        self.profile.user.save(update_fields=["password", "must_change_password"])
+        self.client.login(username=self.profile.user.username, password="pass12345")
 
     def test_shows_own_academic_details(self):
         response = self.client.get(reverse("profile"))

@@ -116,11 +116,13 @@ class StudentProfile(models.Model):
     gender = models.CharField(max_length=1, choices=GENDER_CHOICES, blank=True)
     phone_number = models.CharField(max_length=20, blank=True)
     address = models.TextField(blank=True)
-    # PIN emailed at account-creation time - proves the student owns the email on file
-    # before the shared, guessable DEFAULT_PASSWORD gets replaced with something only
-    # they know. Same hashing/lockout mechanics the old AdmissionRecord used for
-    # self-registration, just living on the account itself now that IT Admin creates
-    # every student account directly instead of a public self-service flow doing it.
+    # PIN emailed at account-creation time - proves the student owns the email on
+    # file before they're allowed to set a real password (see
+    # accounts.models.User.skips_first_login_password - no initial password is
+    # set at all, this PIN is the actual first-login identity check). Same
+    # hashing/lockout mechanics the old AdmissionRecord used for self-registration,
+    # just living on the account itself now that IT Admin creates every student
+    # account directly instead of a public self-service flow doing it.
     pin_hash = models.CharField(max_length=128, blank=True, default="")
     failed_pin_attempts = models.PositiveSmallIntegerField(default=0)
     pin_locked_until = models.DateTimeField(null=True, blank=True)

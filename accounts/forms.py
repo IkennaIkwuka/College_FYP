@@ -38,7 +38,14 @@ class BootstrapFormMixin:
 
 
 class LoginForm(BootstrapFormMixin, AuthenticationForm):
-    pass
+    # A student who hasn't finished first-login setup can authenticate with just
+    # their username - see accounts.auth_backends.LenientUsernameBackend and
+    # User.skips_first_login_password. AuthenticationForm makes password required
+    # by default, which would reject that submission before it ever reached the
+    # backend.
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["password"].required = False
 
 
 class ForgotPasswordForm(BootstrapFormMixin, PasswordResetForm):

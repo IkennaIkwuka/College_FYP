@@ -9,7 +9,7 @@ from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
 from students.models import Department
-from students.services import create_student_account
+from students.services import create_student_account, reset_student_first_login
 
 from .forms import PreferredUsernameForm
 from .models import ADMIN_GROUP, BURSAR_GROUP, DEAN_GROUP, HOD_GROUP, LECTURER_GROUP, REGISTRAR_GROUP, User
@@ -121,56 +121,105 @@ class SessionExpiryTests(TestCase):
         self.assertGreater(session.expire_date, timezone.now() + timedelta(minutes=settings.SESSION_IDLE_TIMEOUT_MINUTES - 1))
 
 
-class LoginLockoutTests(TestCase):
-    """FR-AUTH-05: lock an account out after settings.LOGIN_MAX_ATTEMPTS consecutive
-    wrong-password attempts, same shape as the existing PIN/email-change lockouts."""
+class PasswordlessFirstLoginTests(TestCase):
+    """A student who hasn't finished first-login setup (must_change_password=True)
+    can log in with just their username - the real identity check is the PIN
+    emailed to their registered address, downstream of this. Staff are NOT
+    eligible - they have no equivalent identity check, so they keep needing the
+    real shared password even while must_change_password is also True for them."""
 
     def setUp(self):
         self.department = Department.objects.create(name="Computer Science")
         self.profile = create_student_account(
-            matric_number="2023/CSC/032",
-            first_name="Amaka",
-            last_name="Obi",
-            email="amaka@example.com",
+            matric_number="2023/CSC/034",
+            first_name="Ada",
+            last_name="Eze",
+            email="ada@example.com",
             department=self.department,
             entry_level=300,
         )
         self.username = self.profile.user.username
 
+    def test_fresh_student_logs_in_with_blank_password(self):
+        self.assertTrue(self.client.login(username=self.username, password=""))
+
+    def test_fresh_student_logs_in_with_wrong_password_too(self):
+        # Whatever's typed is ignored for an eligible account - the real gate is
+        # the PIN step downstream, not this field.
+        self.assertTrue(self.client.login(username=self.username, password="anything-at-all"))
+
+    def test_completed_setup_requires_real_password(self):
+        self.profile.user.must_change_password = False
+        self.profile.user.set_password("a-real-chosen-password")
+        self.profile.user.save(update_fields=["must_change_password", "password"])
+
+        self.assertFalse(self.client.login(username=self.username, password=""))
+        self.assertFalse(self.client.login(username=self.username, password="wrong-guess"))
+        self.assertTrue(self.client.login(username=self.username, password="a-real-chosen-password"))
+
+    def test_staff_not_eligible_even_with_must_change_password_true(self):
+        staff = make_lecturer(username="notpasswordless1")
+        staff.must_change_password = True
+        staff.save(update_fields=["must_change_password"])
+
+        self.assertFalse(self.client.login(username="notpasswordless1", password=""))
+        self.assertTrue(self.client.login(username="notpasswordless1", password="pass12345"))
+
+    def test_reset_student_first_login_reopens_passwordless_entry(self):
+        self.profile.user.must_change_password = False
+        self.profile.user.set_password("a-real-chosen-password")
+        self.profile.user.save(update_fields=["must_change_password", "password"])
+        self.assertFalse(self.client.login(username=self.username, password=""))
+
+        reset_student_first_login(self.profile.user)
+        self.assertTrue(self.client.login(username=self.username, password=""))
+
+
+class LoginLockoutTests(TestCase):
+    """FR-AUTH-05: lock an account out after settings.LOGIN_MAX_ATTEMPTS consecutive
+    wrong-password attempts, same shape as the existing PIN/email-change lockouts.
+
+    Uses a staff account (make_lecturer), not a fresh student - a fresh student is
+    passwordless-eligible (see PasswordlessFirstLoginTests) and would never reach
+    the password-check/lockout logic at all, same reasoning SessionExpiryTests
+    already uses for picking a staff account as its subject."""
+
+    def setUp(self):
+        self.user = make_lecturer(username="lockouttest1")
+        self.username = "lockouttest1"
+
     def test_lockout_after_max_failed_attempts(self):
         for _ in range(settings.LOGIN_MAX_ATTEMPTS):
             self.assertFalse(self.client.login(username=self.username, password="wrong-password"))
         # Even the correct password is rejected once locked.
-        self.assertFalse(self.client.login(username=self.username, password=settings.DEFAULT_PASSWORD))
-        self.profile.user.refresh_from_db()
-        self.assertTrue(self.profile.user.is_login_locked)
+        self.assertFalse(self.client.login(username=self.username, password="pass12345"))
+        self.user.refresh_from_db()
+        self.assertTrue(self.user.is_login_locked)
 
     def test_fewer_than_max_attempts_does_not_lock(self):
         for _ in range(settings.LOGIN_MAX_ATTEMPTS - 1):
             self.client.login(username=self.username, password="wrong-password")
-        self.assertTrue(self.client.login(username=self.username, password=settings.DEFAULT_PASSWORD))
+        self.assertTrue(self.client.login(username=self.username, password="pass12345"))
 
     def test_successful_login_resets_attempt_counter(self):
         for _ in range(settings.LOGIN_MAX_ATTEMPTS - 1):
             self.client.login(username=self.username, password="wrong-password")
-        self.assertTrue(self.client.login(username=self.username, password=settings.DEFAULT_PASSWORD))
-        self.profile.user.refresh_from_db()
-        self.assertEqual(self.profile.user.failed_login_attempts, 0)
+        self.assertTrue(self.client.login(username=self.username, password="pass12345"))
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.failed_login_attempts, 0)
 
     def test_lockout_clears_after_cooldown(self):
-        user = self.profile.user
-        user.failed_login_attempts = settings.LOGIN_MAX_ATTEMPTS
-        user.login_locked_until = timezone.now() - timedelta(minutes=1)
-        user.save(update_fields=["failed_login_attempts", "login_locked_until"])
-        self.assertTrue(self.client.login(username=self.username, password=settings.DEFAULT_PASSWORD))
+        self.user.failed_login_attempts = settings.LOGIN_MAX_ATTEMPTS
+        self.user.login_locked_until = timezone.now() - timedelta(minutes=1)
+        self.user.save(update_fields=["failed_login_attempts", "login_locked_until"])
+        self.assertTrue(self.client.login(username=self.username, password="pass12345"))
 
     def test_inactive_account_correct_password_not_counted_as_failed_attempt(self):
-        user = self.profile.user
-        user.is_active = False
-        user.save(update_fields=["is_active"])
-        self.client.login(username=self.username, password=settings.DEFAULT_PASSWORD)
-        user.refresh_from_db()
-        self.assertEqual(user.failed_login_attempts, 0)
+        self.user.is_active = False
+        self.user.save(update_fields=["is_active"])
+        self.client.login(username=self.username, password="pass12345")
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.failed_login_attempts, 0)
 
 
 class ForcedPasswordChangeTests(TestCase):
@@ -240,12 +289,17 @@ class AdminOnlyViewsTests(TestCase):
             entry_level=200,
         )
         # Skip the forced-password-change redirect for these permission checks -
-        # that flow is covered separately in ForcedPasswordChangeTests.
+        # that flow is covered separately in ForcedPasswordChangeTests. A real
+        # password is required here now: must_change_password=False with no real
+        # password wouldn't be reachable via a normal login (see
+        # User.skips_first_login_password), so it'd be testing a state that can't
+        # actually happen.
+        self.student_profile.user.set_password("pass12345")
         self.student_profile.user.must_change_password = False
-        self.student_profile.user.save(update_fields=["must_change_password"])
+        self.student_profile.user.save(update_fields=["password", "must_change_password"])
 
     def test_non_admin_forbidden(self):
-        self.client.login(username=self.student_profile.user.username, password=settings.DEFAULT_PASSWORD)
+        self.client.login(username=self.student_profile.user.username, password="pass12345")
         for name in [
             "students:lookup",
             "accounts:manage_staff",
@@ -662,9 +716,10 @@ class ProfilePageTests(TestCase):
             department=department,
             entry_level=100,
         )
+        profile.user.set_password("pass12345")
         profile.user.must_change_password = False
-        profile.user.save(update_fields=["must_change_password"])
-        self.client.login(username=profile.user.username, password=settings.DEFAULT_PASSWORD)
+        profile.user.save(update_fields=["password", "must_change_password"])
+        self.client.login(username=profile.user.username, password="pass12345")
         response = self.client.get(reverse("profile"))
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "2023/CSC/060")
@@ -864,9 +919,11 @@ class DashboardRoutingTests(TestCase):
             entry_level=200,
         )
         # Skip the forced-password-change redirect - covered separately in
-        # ForcedPasswordChangeTests.
+        # ForcedPasswordChangeTests. Needs a real password now that
+        # must_change_password=False (see User.skips_first_login_password).
+        self.student_profile.user.set_password("pass12345")
         self.student_profile.user.must_change_password = False
-        self.student_profile.user.save(update_fields=["must_change_password"])
+        self.student_profile.user.save(update_fields=["password", "must_change_password"])
 
     def test_admin_sees_admin_dashboard(self):
         make_admin()
@@ -890,7 +947,7 @@ class DashboardRoutingTests(TestCase):
         self.assertContains(response, "Lecturer dashboard.")
 
     def test_student_sees_student_dashboard(self):
-        self.client.login(username=self.student_profile.user.username, password=settings.DEFAULT_PASSWORD)
+        self.client.login(username=self.student_profile.user.username, password="pass12345")
         response = self.client.get(reverse("dashboard"))
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Student dashboard.")
@@ -934,27 +991,27 @@ class DashboardRoutingTests(TestCase):
         self.assertContains(response, "Dean dashboard.")
 
     def test_non_registrar_forbidden_from_registrar_dashboard(self):
-        self.client.login(username=self.student_profile.user.username, password=settings.DEFAULT_PASSWORD)
+        self.client.login(username=self.student_profile.user.username, password="pass12345")
         self.assertEqual(self.client.get(reverse("registrar_dashboard")).status_code, 403)
 
     def test_non_bursar_forbidden_from_bursar_dashboard(self):
-        self.client.login(username=self.student_profile.user.username, password=settings.DEFAULT_PASSWORD)
+        self.client.login(username=self.student_profile.user.username, password="pass12345")
         self.assertEqual(self.client.get(reverse("bursar_dashboard")).status_code, 403)
 
     def test_non_dean_forbidden_from_dean_dashboard(self):
-        self.client.login(username=self.student_profile.user.username, password=settings.DEFAULT_PASSWORD)
+        self.client.login(username=self.student_profile.user.username, password="pass12345")
         self.assertEqual(self.client.get(reverse("dean_dashboard")).status_code, 403)
 
     def test_non_admin_forbidden_from_admin_dashboard(self):
-        self.client.login(username=self.student_profile.user.username, password=settings.DEFAULT_PASSWORD)
+        self.client.login(username=self.student_profile.user.username, password="pass12345")
         self.assertEqual(self.client.get(reverse("admin_dashboard")).status_code, 403)
 
     def test_non_hod_forbidden_from_hod_dashboard(self):
-        self.client.login(username=self.student_profile.user.username, password=settings.DEFAULT_PASSWORD)
+        self.client.login(username=self.student_profile.user.username, password="pass12345")
         self.assertEqual(self.client.get(reverse("hod_dashboard")).status_code, 403)
 
     def test_non_lecturer_forbidden_from_lecturer_dashboard(self):
-        self.client.login(username=self.student_profile.user.username, password=settings.DEFAULT_PASSWORD)
+        self.client.login(username=self.student_profile.user.username, password="pass12345")
         self.assertEqual(self.client.get(reverse("lecturer_dashboard")).status_code, 403)
 
     def test_non_student_forbidden_from_student_dashboard(self):
