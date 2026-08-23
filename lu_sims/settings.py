@@ -110,7 +110,7 @@ MAX_SEMESTER_UNITS = 24
 # Defaults to the console backend (prints instead of sending) unless real SMTP settings
 # are supplied via .env - see .env.example. Nothing here changes local dev behavior until
 # a .env is deliberately created with real values for an actual deployment.
-EMAIL_BACKEND = os.environ.get('EMAIL_BACKEND', 'django.core.mail.backends.console.EmailBackend')
+EMAIL_BACKEND = os.environ.get('EMAIL_BACKEND', 'lu_sims.mail_backends.ReadableConsoleEmailBackend')
 EMAIL_HOST = os.environ.get('EMAIL_HOST', '')
 EMAIL_PORT = int(os.environ.get('EMAIL_PORT', '587'))
 EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', '')
