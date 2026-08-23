@@ -1,0 +1,47 @@
+{% extends "accounts/base.html" %}
+
+{% block title %}{{ staff_user.username }} - LU-SIMS{% endblock %}
+
+{% block content %}
+    <div class="d-flex justify-content-between align-items-center">
+        <h1>{{ staff_user.get_full_name|default:staff_user.username }}</h1>
+        <div>
+            <a href="{% url 'accounts:manage_staff' %}" class="btn btn-outline-secondary">Back to Manage Staff</a>
+            <a href="{% url 'accounts:staff_edit' staff_user.id %}" class="btn btn-primary">Edit</a>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-lg-8">
+            <div class="card mb-4">
+                <div class="card-body">
+                    <h2 class="h5">Account Details</h2>
+                    <table class="table table-sm w-auto">
+                        <tr><th>Name</th><td>{{ staff_user.get_full_name|default:staff_user.username }}</td></tr>
+                        <tr><th>Email</th><td>{{ staff_user.email }}</td></tr>
+                        <tr><th>Username</th><td>{{ staff_user.username }}</td></tr>
+                        <tr><th>Staff ID</th><td>{{ staff_user.staff_id|default:"-" }}</td></tr>
+                        <tr><th>Role</th><td>{{ staff_user.groups.first|default:"-" }}</td></tr>
+                        {% if staff_user.department_headed %}
+                            <tr><th>Department</th><td>{{ staff_user.department_headed }}</td></tr>
+                        {% endif %}
+                        <tr><th>Status</th><td>{% if staff_user.is_active %}Active{% else %}Inactive{% endif %}</td></tr>
+                        <tr><th>Date joined</th><td>{{ staff_user.date_joined|date:"Y-m-d" }}</td></tr>
+                        <tr><th>Last login</th><td>{{ staff_user.last_login|date:"Y-m-d H:i"|default:"Never" }}</td></tr>
+                    </table>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-body">
+                    <h2 class="h5">Personal Details</h2>
+                    <table class="table table-sm w-auto">
+                        <tr><th>Phone number</th><td>{{ staff_user.phone_number|default:"-" }}</td></tr>
+                        <tr><th>Date of birth</th><td>{{ staff_user.date_of_birth|date:"Y-m-d"|default:"-" }}</td></tr>
+                        <tr><th>Gender</th><td>{{ staff_user.get_gender_display|default:"-" }}</td></tr>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock %}

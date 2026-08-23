@@ -167,6 +167,9 @@ class AdminOnlyViewsTests(TestCase):
             self.client.get(reverse("accounts:staff_edit", args=[staff.id])).status_code, 403
         )
         self.assertEqual(
+            self.client.get(reverse("accounts:staff_detail", args=[staff.id])).status_code, 403
+        )
+        self.assertEqual(
             self.client.post(
                 reverse("accounts:staff_force_password_reset", args=[staff.id])
             ).status_code,
@@ -266,7 +269,7 @@ class AdminOnlyViewsTests(TestCase):
                 "group": Group.objects.get(name=LECTURER_GROUP).id,
             },
         )
-        self.assertRedirects(response, reverse("accounts:manage_staff"))
+        self.assertRedirects(response, reverse("accounts:staff_detail", args=[staff.id]))
         staff.refresh_from_db()
         self.assertEqual(staff.first_name, "Updated")
         self.assertTrue(staff.groups.filter(name=LECTURER_GROUP).exists())
@@ -297,7 +300,7 @@ class AdminOnlyViewsTests(TestCase):
                 "group": Group.objects.get(name=HOD_GROUP).id,
             },
         )
-        self.assertRedirects(response, reverse("accounts:manage_staff"))
+        self.assertRedirects(response, reverse("accounts:staff_detail", args=[staff.id]))
 
     def test_admin_cannot_promote_staff_to_registrar_while_one_is_active(self):
         make_registrar()
@@ -333,7 +336,7 @@ class AdminOnlyViewsTests(TestCase):
                 "group": Group.objects.get(name=REGISTRAR_GROUP).id,
             },
         )
-        self.assertRedirects(deactivate_response, reverse("accounts:manage_staff"))
+        self.assertRedirects(deactivate_response, reverse("accounts:staff_detail", args=[current_registrar.id]))
 
         promote_response = self.client.post(
             reverse("accounts:staff_edit", args=[staff.id]),
@@ -345,7 +348,7 @@ class AdminOnlyViewsTests(TestCase):
                 "group": Group.objects.get(name=REGISTRAR_GROUP).id,
             },
         )
-        self.assertRedirects(promote_response, reverse("accounts:manage_staff"))
+        self.assertRedirects(promote_response, reverse("accounts:staff_detail", args=[staff.id]))
         staff.refresh_from_db()
         self.assertTrue(staff.groups.filter(name=REGISTRAR_GROUP).exists())
 
@@ -382,11 +385,25 @@ class AdminOnlyViewsTests(TestCase):
                 "group": Group.objects.get(name=REGISTRAR_GROUP).id,
             },
         )
-        self.assertRedirects(resolve_response, reverse("accounts:manage_staff"))
+        self.assertRedirects(resolve_response, reverse("accounts:staff_detail", args=[second.id]))
         second.refresh_from_db()
         self.assertFalse(second.is_active)
         first.refresh_from_db()
         self.assertTrue(first.is_active)
+
+    def test_staff_detail_shows_read_only_record(self):
+        staff = make_hod(username="hodtoview")
+        self.client.login(username="admin", password="pass12345")
+        response = self.client.get(reverse("accounts:staff_detail", args=[staff.id]))
+        self.assertContains(response, "hodtoview")
+        self.assertContains(response, staff.email)
+        self.assertContains(response, "Edit")
+
+    def test_manage_staff_list_links_to_detail_not_edit(self):
+        staff = make_hod(username="hodinlist")
+        self.client.login(username="admin", password="pass12345")
+        response = self.client.get(reverse("accounts:manage_staff"))
+        self.assertContains(response, reverse("accounts:staff_detail", args=[staff.id]))
 
     def test_deactivated_staff_cannot_log_in(self):
         staff = make_hod(username="hodtodeactivate")

@@ -9,6 +9,7 @@ urlpatterns = [
     path("manage/staff/", views.manage_staff, name="manage_staff"),
     path("manage/staff/search/", views.staff_search_suggestions, name="staff_search_suggestions"),
     path("manage/staff/add/", views.staff_add, name="staff_add"),
+    path("manage/staff/<int:pk>/", views.staff_detail, name="staff_detail"),
     path("manage/staff/<int:pk>/edit/", views.staff_edit, name="staff_edit"),
     path(
         "manage/staff/<int:pk>/reset-password/",

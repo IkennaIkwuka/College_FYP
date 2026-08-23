@@ -209,7 +209,7 @@ def staff_search_suggestions(request):
                 "label": staff_user.get_full_name() or staff_user.username,
                 "sublabel": role.name if role else "",
                 "value": staff_user.username,
-                "url": reverse("accounts:staff_edit", args=[staff_user.id]),
+                "url": reverse("accounts:staff_detail", args=[staff_user.id]),
             })
     return JsonResponse({"results": results})
 
@@ -245,6 +245,12 @@ def staff_add(request):
 
 
 @admin_required
+def staff_detail(request, pk):
+    staff_user = get_object_or_404(User, pk=pk, groups__name__in=STAFF_GROUPS)
+    return render(request, "accounts/staff_detail.html", {"staff_user": staff_user})
+
+
+@admin_required
 def staff_edit(request, pk):
     staff_user = get_object_or_404(User, pk=pk, groups__name__in=STAFF_GROUPS)
 
@@ -255,13 +261,11 @@ def staff_edit(request, pk):
             staff_user.groups.remove(*Group.objects.filter(name__in=STAFF_GROUPS))
             staff_user.groups.add(form.cleaned_data["group"])
             messages.success(request, f"Updated {staff_user.get_full_name() or staff_user.username}.")
-            return redirect("accounts:manage_staff")
+            return redirect("accounts:staff_detail", pk=staff_user.id)
     else:
         form = StaffEditForm(instance=staff_user)
 
-    return render(
-        request, "accounts/staff_form.html", {"form": form, "title": f"Edit {staff_user.username}"}
-    )
+    return render(request, "accounts/staff_edit.html", {"form": form, "staff_user": staff_user})
 
 
 @admin_required
