@@ -299,7 +299,7 @@ def department_edit(request, pk):
 def _filtered_student_profiles(request):
     query = request.GET.get("q", "").strip()
     department_id = request.GET.get("department", "").strip()
-    entry_level = request.GET.get("entry_level", "").strip()
+    level = request.GET.get("level", "").strip()
     admission_type = request.GET.get("admission_type", "").strip()
 
     profiles = StudentProfile.objects.select_related("user", "department").order_by("matric_number")
@@ -311,16 +311,19 @@ def _filtered_student_profiles(request):
         )
     if department_id:
         profiles = profiles.filter(department_id=department_id)
-    if entry_level:
-        profiles = profiles.filter(entry_level=entry_level)
     if admission_type:
         profiles = profiles.filter(admission_type=admission_type)
-    return profiles, query, department_id, entry_level, admission_type
+    # current_level is derived (StudentProfile.current_level), not a DB field, so this
+    # filter runs in Python rather than duplicating the entry-year/cap math into a
+    # second ORM expression that could drift out of sync with the model property.
+    if level:
+        profiles = [profile for profile in profiles if profile.current_level == int(level)]
+    return profiles, query, department_id, level, admission_type
 
 
 @registrar_required
 def manage_students(request):
-    profiles, query, department_id, entry_level, admission_type = _filtered_student_profiles(request)
+    profiles, query, department_id, level, admission_type = _filtered_student_profiles(request)
 
     paginator = Paginator(profiles, 10)
     profiles = paginator.get_page(request.GET.get("page"))
@@ -340,7 +343,7 @@ def manage_students(request):
             "levels": LEVEL_CHOICES,
             "admission_types": ADMISSION_TYPE_CHOICES,
             "selected_department": department_id,
-            "selected_entry_level": entry_level,
+            "selected_level": level,
             "selected_admission_type": admission_type,
         },
     )

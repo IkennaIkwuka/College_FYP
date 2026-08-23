@@ -15,10 +15,10 @@
                 <option value="{{ department.id }}" {% if selected_department == department.id|stringformat:"s" %}selected{% endif %}>{{ department.name }}</option>
             {% endfor %}
         </select>
-        <select name="entry_level" class="form-select" style="max-width: 180px;" onchange="this.form.submit()">
-            <option value="">All entry levels</option>
+        <select name="level" class="form-select" style="max-width: 180px;" onchange="this.form.submit()">
+            <option value="">All levels</option>
             {% for level, label in levels %}
-                <option value="{{ level }}" {% if selected_entry_level == level|stringformat:"s" %}selected{% endif %}>{{ label }}</option>
+                <option value="{{ level }}" {% if selected_level == level|stringformat:"s" %}selected{% endif %}>{{ label }}</option>
             {% endfor %}
         </select>
         <select name="admission_type" class="form-select" style="max-width: 220px;" onchange="this.form.submit()">

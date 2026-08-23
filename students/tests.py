@@ -383,10 +383,21 @@ class ManageStudentsTests(TestCase):
         self.assertContains(response, "Ifeoma")
         self.assertNotContains(response, "Bassey")
 
-    def test_filter_by_entry_level(self):
-        response = self.client.get(reverse("students:manage_students"), {"entry_level": 100})
+    def test_filter_by_current_level(self):
+        response = self.client.get(reverse("students:manage_students"), {"level": 100})
         self.assertContains(response, "Bassey")
         self.assertNotContains(response, "Ifeoma")
+
+    def test_filter_by_current_level_reflects_years_elapsed_not_entry_level(self):
+        # Ifeoma entered at 200L this same session, so entry_level alone would put her
+        # in a "200" filter - but the filter is now current_level, which happens to
+        # equal entry_level here only because 0 sessions have elapsed since entry.
+        # Advancing CURRENT_SESSION would move her out of a "200" filter; this test
+        # pins today's case (0 years elapsed) so a regression back to entry_level-based
+        # filtering can't hide behind the coincidence.
+        response = self.client.get(reverse("students:manage_students"), {"level": 200})
+        self.assertContains(response, "Ifeoma")
+        self.assertNotContains(response, "Bassey")
 
     def test_search_and_filter_combine(self):
         response = self.client.get(
