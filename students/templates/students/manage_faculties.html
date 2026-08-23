@@ -21,7 +21,7 @@
                         <td>{{ faculty.name }}</td>
                         <td>{{ faculty.dean|default:"Unassigned" }}</td>
                         <td class="text-end">
-                            <a href="{% url 'students:faculty_edit' faculty.id %}" class="btn btn-outline-secondary btn-sm">Edit</a>
+                            <a href="{% url 'students:faculty_detail' faculty.id %}" class="btn btn-outline-secondary btn-sm">View</a>
                         </td>
                     </tr>
                 {% endfor %}

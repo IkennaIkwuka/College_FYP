@@ -7,7 +7,7 @@ from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
-from .models import Department, StudentProfile
+from .models import Department, Faculty, StudentProfile
 from .services import create_student_account
 
 
@@ -323,9 +323,18 @@ class DepartmentManagementTests(TestCase):
             reverse("students:department_edit", args=[self.department.id]),
             {"name": "Computer Science", "hod": hod.id, "duration_years": 4},
         )
-        self.assertRedirects(response, reverse("students:manage_departments"))
+        self.assertRedirects(response, reverse("students:department_detail", args=[self.department.id]))
         self.department.refresh_from_db()
         self.assertEqual(self.department.hod, hod)
+
+    def test_department_detail_shows_read_only_record(self):
+        response = self.client.get(reverse("students:department_detail", args=[self.department.id]))
+        self.assertContains(response, "Computer Science")
+        self.assertContains(response, "Edit")
+
+    def test_manage_departments_list_links_to_detail_not_edit(self):
+        response = self.client.get(reverse("students:manage_departments"))
+        self.assertContains(response, reverse("students:department_detail", args=[self.department.id]))
 
     def test_hod_field_only_offers_hod_group_users(self):
         make_hod()
@@ -347,6 +356,55 @@ class DepartmentManagementTests(TestCase):
             self.assertEqual(self.client.get(reverse(name)).status_code, 403, name)
         self.assertEqual(
             self.client.get(reverse("students:department_edit", args=[self.department.id])).status_code, 403
+        )
+        self.assertEqual(
+            self.client.get(reverse("students:department_detail", args=[self.department.id])).status_code, 403
+        )
+
+
+class FacultyManagementTests(TestCase):
+    def setUp(self):
+        self.faculty = Faculty.objects.create(name="Science")
+        self.admin = make_admin()
+        self.client.login(username="admin", password="pass12345")
+
+    def test_manage_faculties_lists_faculties(self):
+        response = self.client.get(reverse("students:manage_faculties"))
+        self.assertContains(response, "Science")
+
+    def test_admin_can_edit_faculty(self):
+        response = self.client.post(
+            reverse("students:faculty_edit", args=[self.faculty.id]), {"name": "Natural Sciences", "dean": ""}
+        )
+        self.assertRedirects(response, reverse("students:faculty_detail", args=[self.faculty.id]))
+        self.faculty.refresh_from_db()
+        self.assertEqual(self.faculty.name, "Natural Sciences")
+
+    def test_faculty_detail_shows_read_only_record(self):
+        response = self.client.get(reverse("students:faculty_detail", args=[self.faculty.id]))
+        self.assertContains(response, "Science")
+        self.assertContains(response, "Edit")
+
+    def test_manage_faculties_list_links_to_detail_not_edit(self):
+        response = self.client.get(reverse("students:manage_faculties"))
+        self.assertContains(response, reverse("students:faculty_detail", args=[self.faculty.id]))
+
+    def test_non_admin_forbidden(self):
+        department = Department.objects.create(name="Physics")
+        student = create_student_account(
+            matric_number="2023/PHY/090", first_name="A", last_name="B",
+            email="ab_phy@example.com", department=department, entry_level=100,
+        )
+        student.user.must_change_password = False
+        student.user.save(update_fields=["must_change_password"])
+        self.client.login(username=student.user.username, password=settings.DEFAULT_PASSWORD)
+        for name in ["students:manage_faculties", "students:faculty_add"]:
+            self.assertEqual(self.client.get(reverse(name)).status_code, 403, name)
+        self.assertEqual(
+            self.client.get(reverse("students:faculty_edit", args=[self.faculty.id])).status_code, 403
+        )
+        self.assertEqual(
+            self.client.get(reverse("students:faculty_detail", args=[self.faculty.id])).status_code, 403
         )
 
 
@@ -630,6 +688,13 @@ class ManageStudentsTests(TestCase):
         self.assertContains(response, self.profile.matric_number)
         self.assertContains(response, self.profile.department.name)
         self.assertContains(response, "Edit")
+
+    def test_student_detail_shows_preferred_username_column(self):
+        self.profile.user.preferred_username = "ifeoma_o"
+        self.profile.user.save(update_fields=["preferred_username"])
+        response = self.client.get(reverse("students:student_detail", args=[self.profile.id]))
+        self.assertContains(response, "Preferred Username")
+        self.assertContains(response, "ifeoma_o")
 
     def test_manage_students_list_links_to_detail_not_edit(self):
         response = self.client.get(reverse("students:manage_students"))

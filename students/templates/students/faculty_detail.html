@@ -1,0 +1,21 @@
+{% extends "accounts/base.html" %}
+
+{% block title %}{{ faculty.name }} - LU-SIMS{% endblock %}
+
+{% block content %}
+    <div class="d-flex justify-content-between align-items-center">
+        <h1>{{ faculty.name }}</h1>
+        <div>
+            <a href="{% url 'students:manage_faculties' %}" class="btn btn-outline-secondary">Back to Manage Faculties</a>
+            <a href="{% url 'students:faculty_edit' faculty.id %}" class="btn btn-primary">Edit</a>
+        </div>
+    </div>
+    <div class="card">
+        <div class="card-body">
+            <table class="table table-sm w-auto">
+                <tr><th>Name</th><td>{{ faculty.name }}</td></tr>
+                <tr><th>Dean</th><td>{{ faculty.dean|default:"Unassigned" }}</td></tr>
+            </table>
+        </div>
+    </div>
+{% endblock %}

@@ -51,5 +51,17 @@
                 </div>
             </div>
         </div>
+
+        <div class="col-lg-4">
+            <div class="card">
+                <div class="card-body">
+                    <h2 class="h5">Preferred Username</h2>
+                    <p class="text-muted small">
+                        An optional second way to log in, alongside the matric-number-derived username above (which
+                        always still works). Currently: <strong>{{ profile.user.preferred_username|default:"Not set" }}</strong>.
+                    </p>
+                </div>
+            </div>
+        </div>
     </div>
 {% endblock %}

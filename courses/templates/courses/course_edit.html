@@ -1,11 +1,11 @@
 {% extends "accounts/base.html" %}
 
-{% block title %}Edit {{ staff_user.username }} - LU-SIMS{% endblock %}
+{% block title %}Edit {{ course.code }} - LU-SIMS{% endblock %}
 
 {% block content %}
     <div class="d-flex justify-content-between align-items-center">
-        <h1>Edit {{ staff_user.username }}</h1>
-        <a href="{% url 'accounts:staff_detail' staff_user.id %}" class="btn btn-outline-secondary">Back to Staff</a>
+        <h1>Edit {{ course.code }}</h1>
+        <a href="{% url 'courses:course_detail' course.id %}" class="btn btn-outline-secondary">Back to Course</a>
     </div>
 
     {% if form.non_field_errors %}
@@ -19,9 +19,9 @@
             <div class="col-lg-6">
                 <div class="card mb-4">
                     <div class="card-body">
-                        <h2 class="h5">Account Details</h2>
+                        <h2 class="h5">Course Details</h2>
                         {% for field in form %}
-                            {% if field.name == "first_name" or field.name == "last_name" or field.name == "email" %}
+                            {% if field.name == "code" or field.name == "title" or field.name == "units" or field.name == "level" or field.name == "semester" %}
                                 <div class="mb-3">
                                     <label for="{{ field.id_for_label }}" class="form-label">{{ field.label }}</label>
                                     {{ field }}
@@ -38,9 +38,9 @@
             <div class="col-lg-6">
                 <div class="card mb-4">
                     <div class="card-body">
-                        <h2 class="h5">Role &amp; Status</h2>
+                        <h2 class="h5">Assignment &amp; Status</h2>
                         {% for field in form %}
-                            {% if field.name == "group" %}
+                            {% if field.name == "lecturer" %}
                                 <div class="mb-3">
                                     <label for="{{ field.id_for_label }}" class="form-label">{{ field.label }}</label>
                                     {{ field }}

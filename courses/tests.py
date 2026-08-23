@@ -331,13 +331,34 @@ class ManageCoursesTests(TestCase):
             reverse("courses:course_edit", args=[self.own_course.id]),
             {"code": "CSC301", "title": "Algorithms II", "units": 3, "level": 300, "semester": "first"},
         )
-        self.assertRedirects(response, reverse("courses:manage_courses"))
+        self.assertRedirects(response, reverse("courses:course_detail", args=[self.own_course.id]))
         self.own_course.refresh_from_db()
         self.assertEqual(self.own_course.title, "Algorithms II")
 
     def test_edit_other_departments_course_404s(self):
         response = self.client.get(reverse("courses:course_edit", args=[self.other_course.id]))
         self.assertEqual(response.status_code, 404)
+
+    def test_course_detail_shows_read_only_record(self):
+        response = self.client.get(reverse("courses:course_detail", args=[self.own_course.id]))
+        self.assertContains(response, "CSC301")
+        self.assertContains(response, "Algorithms")
+        self.assertContains(response, "Edit")
+
+    def test_course_detail_other_departments_course_404s(self):
+        response = self.client.get(reverse("courses:course_detail", args=[self.other_course.id]))
+        self.assertEqual(response.status_code, 404)
+
+    def test_course_detail_non_hod_forbidden(self):
+        make_lecturer("lect_for_course_detail")
+        self.client.logout()
+        self.client.login(username="lect_for_course_detail", password="pass12345")
+        response = self.client.get(reverse("courses:course_detail", args=[self.own_course.id]))
+        self.assertEqual(response.status_code, 403)
+
+    def test_manage_courses_list_links_to_detail_not_edit(self):
+        response = self.client.get(reverse("courses:manage_courses"))
+        self.assertContains(response, reverse("courses:course_detail", args=[self.own_course.id]))
 
     def test_toggle_active_on_other_departments_course_404s(self):
         response = self.client.post(reverse("courses:course_toggle_active", args=[self.other_course.id]))

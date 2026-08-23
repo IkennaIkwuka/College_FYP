@@ -399,6 +399,15 @@ class AdminOnlyViewsTests(TestCase):
         self.assertContains(response, staff.email)
         self.assertContains(response, "Edit")
 
+    def test_staff_detail_shows_preferred_username_column(self):
+        staff = make_hod(username="hodwithpreferred")
+        staff.preferred_username = "hod_pref"
+        staff.save(update_fields=["preferred_username"])
+        self.client.login(username="admin", password="pass12345")
+        response = self.client.get(reverse("accounts:staff_detail", args=[staff.id]))
+        self.assertContains(response, "Preferred Username")
+        self.assertContains(response, "hod_pref")
+
     def test_manage_staff_list_links_to_detail_not_edit(self):
         staff = make_hod(username="hodinlist")
         self.client.login(username="admin", password="pass12345")

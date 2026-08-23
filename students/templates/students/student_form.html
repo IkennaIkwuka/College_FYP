@@ -15,54 +15,60 @@
     <form method="post">
         {% csrf_token %}
 
-        <div class="card mb-4">
-            <div class="card-body">
-                <h2 class="h5">Account Details</h2>
-                {% for field in form %}
-                    {% if field.name == "first_name" or field.name == "last_name" or field.name == "email" %}
-                        <div class="mb-3">
-                            <label for="{{ field.id_for_label }}" class="form-label">{{ field.label }}</label>
-                            {{ field }}
-                            {% for error in field.errors %}
-                                <div class="text-danger small">{{ error }}</div>
-                            {% endfor %}
-                        </div>
-                    {% endif %}
-                {% endfor %}
-            </div>
-        </div>
+        <div class="row">
+            <div class="col-lg-6">
+                <div class="card mb-4">
+                    <div class="card-body">
+                        <h2 class="h5">Account Details</h2>
+                        {% for field in form %}
+                            {% if field.name == "first_name" or field.name == "last_name" or field.name == "email" %}
+                                <div class="mb-3">
+                                    <label for="{{ field.id_for_label }}" class="form-label">{{ field.label }}</label>
+                                    {{ field }}
+                                    {% for error in field.errors %}
+                                        <div class="text-danger small">{{ error }}</div>
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        {% endfor %}
+                    </div>
+                </div>
 
-        <div class="card mb-4">
-            <div class="card-body">
-                <h2 class="h5">Academic Details</h2>
-                {% for field in form %}
-                    {% if field.name == "matric_number" or field.name == "department" or field.name == "entry_level" or field.name == "admission_type" %}
-                        <div class="mb-3">
-                            <label for="{{ field.id_for_label }}" class="form-label">{{ field.label }}</label>
-                            {{ field }}
-                            {% for error in field.errors %}
-                                <div class="text-danger small">{{ error }}</div>
-                            {% endfor %}
-                        </div>
-                    {% endif %}
-                {% endfor %}
+                <div class="card mb-4">
+                    <div class="card-body">
+                        <h2 class="h5">Personal Details</h2>
+                        {% for field in form %}
+                            {% if field.name == "date_of_birth" or field.name == "gender" or field.name == "phone_number" or field.name == "address" %}
+                                <div class="mb-3">
+                                    <label for="{{ field.id_for_label }}" class="form-label">{{ field.label }}</label>
+                                    {{ field }}
+                                    {% for error in field.errors %}
+                                        <div class="text-danger small">{{ error }}</div>
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        {% endfor %}
+                    </div>
+                </div>
             </div>
-        </div>
 
-        <div class="card mb-4">
-            <div class="card-body">
-                <h2 class="h5">Personal Details</h2>
-                {% for field in form %}
-                    {% if field.name == "date_of_birth" or field.name == "gender" or field.name == "phone_number" or field.name == "address" %}
-                        <div class="mb-3">
-                            <label for="{{ field.id_for_label }}" class="form-label">{{ field.label }}</label>
-                            {{ field }}
-                            {% for error in field.errors %}
-                                <div class="text-danger small">{{ error }}</div>
-                            {% endfor %}
-                        </div>
-                    {% endif %}
-                {% endfor %}
+            <div class="col-lg-6">
+                <div class="card mb-4">
+                    <div class="card-body">
+                        <h2 class="h5">Academic Details</h2>
+                        {% for field in form %}
+                            {% if field.name == "matric_number" or field.name == "department" or field.name == "entry_level" or field.name == "admission_type" %}
+                                <div class="mb-3">
+                                    <label for="{{ field.id_for_label }}" class="form-label">{{ field.label }}</label>
+                                    {{ field }}
+                                    {% for error in field.errors %}
+                                        <div class="text-danger small">{{ error }}</div>
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        {% endfor %}
+                    </div>
+                </div>
             </div>
         </div>
 

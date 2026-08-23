@@ -1,0 +1,19 @@
+{% extends "accounts/base.html" %}
+
+{% block title %}Edit {{ department.name }} - LU-SIMS{% endblock %}
+
+{% block content %}
+    <div class="d-flex justify-content-between align-items-center">
+        <h1>Edit {{ department.name }}</h1>
+        <a href="{% url 'students:department_detail' department.id %}" class="btn btn-outline-secondary">Back to Department</a>
+    </div>
+    <div class="card">
+        <div class="card-body">
+            <form method="post">
+                {% csrf_token %}
+                {{ form.as_p }}
+                <button type="submit" class="btn btn-primary">Save</button>
+            </form>
+        </div>
+    </div>
+{% endblock %}

@@ -43,5 +43,17 @@
                 </div>
             </div>
         </div>
+
+        <div class="col-lg-4">
+            <div class="card">
+                <div class="card-body">
+                    <h2 class="h5">Preferred Username</h2>
+                    <p class="text-muted small">
+                        An optional second way to log in, alongside the username above (which always still works).
+                        Currently: <strong>{{ staff_user.preferred_username|default:"Not set" }}</strong>.
+                    </p>
+                </div>
+            </div>
+        </div>
     </div>
 {% endblock %}

@@ -270,6 +270,12 @@ def faculty_add(request):
 
 
 @admin_required
+def faculty_detail(request, pk):
+    faculty = get_object_or_404(Faculty, pk=pk)
+    return render(request, "students/faculty_detail.html", {"faculty": faculty})
+
+
+@admin_required
 def faculty_edit(request, pk):
     faculty = get_object_or_404(Faculty, pk=pk)
 
@@ -278,11 +284,11 @@ def faculty_edit(request, pk):
         if form.is_valid():
             form.save()
             messages.success(request, f"Updated {faculty.name}.")
-            return redirect("students:manage_faculties")
+            return redirect("students:faculty_detail", pk=faculty.id)
     else:
         form = FacultyForm(instance=faculty)
 
-    return render(request, "students/faculty_form.html", {"form": form, "title": f"Edit {faculty.name}"})
+    return render(request, "students/faculty_edit.html", {"form": form, "faculty": faculty})
 
 
 @admin_required
@@ -306,6 +312,12 @@ def department_add(request):
 
 
 @admin_required
+def department_detail(request, pk):
+    department = get_object_or_404(Department, pk=pk)
+    return render(request, "students/department_detail.html", {"department": department})
+
+
+@admin_required
 def department_edit(request, pk):
     department = get_object_or_404(Department, pk=pk)
 
@@ -314,12 +326,12 @@ def department_edit(request, pk):
         if form.is_valid():
             form.save()
             messages.success(request, f"Updated {department.name}.")
-            return redirect("students:manage_departments")
+            return redirect("students:department_detail", pk=department.id)
     else:
         form = DepartmentForm(instance=department)
 
     return render(
-        request, "students/department_form.html", {"form": form, "title": f"Edit {department.name}"}
+        request, "students/department_edit.html", {"form": form, "department": department}
     )
 
 

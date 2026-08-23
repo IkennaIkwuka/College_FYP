@@ -189,7 +189,7 @@ def course_search_suggestions(request):
                 "label": f"{course.code} — {course.title}",
                 "sublabel": department.name,
                 "value": course.code,
-                "url": reverse("courses:course_edit", args=[course.id]),
+                "url": reverse("courses:course_detail", args=[course.id]),
             })
     return JsonResponse({"results": results})
 
@@ -380,7 +380,14 @@ def course_add(request):
     else:
         form = CourseForm()
 
-    return render(request, "courses/course_form.html", {"form": form, "title": "Add Course"})
+    return render(request, "courses/course_form.html", {"form": form})
+
+
+@hod_required
+def course_detail(request, pk):
+    department = _hod_department(request)
+    course = get_object_or_404(Course, pk=pk, department=department)
+    return render(request, "courses/course_detail.html", {"course": course})
 
 
 @hod_required
@@ -393,11 +400,11 @@ def course_edit(request, pk):
         if form.is_valid() and not _course_level_exceeds_duration(form, department):
             form.save()
             messages.success(request, f"Updated {course.code}.")
-            return redirect("courses:manage_courses")
+            return redirect("courses:course_detail", pk=course.id)
     else:
         form = CourseForm(instance=course)
 
-    return render(request, "courses/course_form.html", {"form": form, "title": f"Edit {course.code}"})
+    return render(request, "courses/course_edit.html", {"form": form, "course": course})
 
 
 def _filtered_registrations(request, course):

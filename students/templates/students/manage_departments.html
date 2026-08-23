@@ -25,7 +25,7 @@
                         <td>{{ department.hod|default:"Unassigned" }}</td>
                         <td>{{ department.get_duration_years_display }}</td>
                         <td class="text-end">
-                            <a href="{% url 'students:department_edit' department.id %}" class="btn btn-outline-secondary btn-sm">Edit</a>
+                            <a href="{% url 'students:department_detail' department.id %}" class="btn btn-outline-secondary btn-sm">View</a>
                         </td>
                     </tr>
                 {% endfor %}
