@@ -20,7 +20,7 @@ From cross-checking docs/SRS_Legacy_University_Portal.md, docs/SDD_Legacy_Univer
 From the 2026-08-21 project audit (SECRET_KEY/DEBUG/ALLOWED_HOSTS already fixed):
 - [ ] SQLite -> real DB before deployment - needs an actual DB instance to point at, deliberately not picked yet
 - [ ] LEVEL_CHOICES caps at 500, blocks 600L for 6-year departments (Medicine/Law/Engineering) - internal bug, not just NUC gap
-- [ ] accounts/views.py imports from students (PIN flow) - breaks the one-directional app-dependency rule
+- [x] accounts/views.py imports from students (PIN flow) - fixed 2026-08-23: send_pin_code moved to lu_sims/views.py (the existing accounts+students composition layer, same pattern as profile/profile_edit), accounts/urls.py imports it from there. URL name/path unchanged, 218 tests still green.
 - [ ] Test coverage: 6 JSON typeahead endpoints untested, resend_email_change_code untested, Faculty CRUD untested
 - [ ] courses app has no services.py - registration logic inlined in views.py, will get worse once approval workflow lands
 - [ ] DEFAULT_PASSWORD is one shared password for every new account - consider per-account random initial passwords instead
@@ -64,3 +64,13 @@ Stretch / likely out of FYP scope, noted for awareness:
 - [ ] ID card generation with photo/QR
 - [ ] Timetable/class-schedule management
 - [ ] Session timeout / auto-logout for shared/cybercafe use
+
+From `/deep-audit` (2026-08-23), Phase 1/2 findings (confirmed, not brainstormed):
+- [ ] `feedback_flag_new_django_app_boundaries.md` (project memory) still says the `StudentAccountForm`/`register`-view accounts->students coupling is "not fixed yet" - it was fixed 2026-08-20 (commit `aa6832f`, confirmed live in the current codebase). The memory file needs correcting; it's a documentation error, not a code issue.
+- [x] Contradiction across memory on the accounts/students PIN-flow import - resolved 2026-08-23, see the entry above and `project_fyp_current_state_2026_08_23.md`. Fixed in code, not just documented.
+- [x] Dependency/migration drift check - clean. `requirements.txt` matches actual imports (no unused/undeclared deps), `manage.py makemigrations --check --dry-run` reports no changes detected.
+
+From `/deep-audit` (2026-08-23), Phase 3 brainstorm - not yet scoped/prioritized:
+- [ ] Memory hygiene: the `project_fyp_current_state_*` chain is now 7 files deep (15/17/18/20/21/22, the last alone ~24KB) - consider consolidating the older ones (15/17/18/20/21) into one condensed historical file now that a full audit has to read all of them, and now that the chain has already produced one real contradiction (see the accounts/students PIN-flow item above) between what an older snapshot said and what later ones say.
+- [ ] Dev-workflow: no CI configured (no GitHub Actions or equivalent) - `python manage.py test` only runs when someone remembers to run it locally.
+- [ ] Dev-workflow: no linter/formatter configured (no flake8/ruff/black) - style is currently whatever each session happened to write.

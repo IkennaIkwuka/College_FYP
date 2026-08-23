@@ -12,8 +12,6 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse, reverse_lazy
 from django.utils import timezone
 
-from students.services import reset_student_pin, send_pin_email
-
 from .decorators import (
     admin_required,
     bursar_required,
@@ -442,21 +440,3 @@ def verify_pin(request):
     return render(request, "accounts/verify_pin.html", {"form": form})
 
 
-@login_required
-def send_pin_code(request):
-    if not request.user.must_change_password:
-        return redirect("dashboard")
-    student_profile = getattr(request.user, "student_profile", None)
-    if student_profile is None:
-        return redirect("accounts:change_password")
-
-    if request.method == "POST":
-        raw_pin = reset_student_pin(student_profile)
-        try:
-            send_pin_email(student_profile, raw_pin)
-            messages.success(request, f"Code sent to {request.user.email}.")
-        except Exception:
-            messages.warning(
-                request, f"Could not send the code to {request.user.email}. Try again shortly."
-            )
-    return redirect("accounts:verify_pin")

@@ -1,6 +1,8 @@
 from django.contrib.auth import views as auth_views
 from django.urls import path
 
+from lu_sims import views as lu_sims_views
+
 from . import views
 
 app_name = "accounts"
@@ -23,7 +25,7 @@ urlpatterns = [
     path("settings/change-email/verify/", views.confirm_email_change, name="confirm_email_change"),
     path("settings/change-email/resend/", views.resend_email_change_code, name="resend_email_change_code"),
     path("verify-pin/", views.verify_pin, name="verify_pin"),
-    path("verify-pin/send-code/", views.send_pin_code, name="send_pin_code"),
+    path("verify-pin/send-code/", lu_sims_views.send_pin_code, name="send_pin_code"),
     path("forgot-password/", views.ForgotPasswordView.as_view(), name="forgot_password"),
     path("forgot-password/sent/", views.ForgotPasswordDoneView.as_view(), name="forgot_password_done"),
     path(
