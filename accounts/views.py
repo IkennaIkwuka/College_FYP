@@ -86,17 +86,30 @@ def request_email_change(request):
     if request.method == "POST":
         form = RequestEmailChangeForm(request.POST, user=request.user)
         if form.is_valid():
-            raw_code = generate_code()
-            request.user.pending_email = form.cleaned_data["new_email"]
-            request.user.email_change_code_hash = make_password(raw_code)
-            request.user.save(update_fields=["pending_email", "email_change_code_hash"])
-            try:
-                send_email_change_code(request.user, raw_code)
-                messages.success(request, f"Code sent to {request.user.pending_email}.")
-            except Exception:
-                messages.warning(
-                    request, f"Could not send the code to {request.user.pending_email}. Try again shortly."
-                )
+            new_email = form.cleaned_data["new_email"]
+            request.user.pending_email = new_email
+
+            # Enumeration-oracle fix: the requester sees the same "code sent" message
+            # and lands on the same confirm page whether new_email is free or already
+            # taken by someone else - only a genuinely free email actually gets a code,
+            # so there's nothing for a guesser to observe either way.
+            email_taken = User.objects.exclude(pk=request.user.pk).filter(email__iexact=new_email).exists()
+            if email_taken:
+                request.user.email_change_code_hash = ""
+                request.user.save(update_fields=["pending_email", "email_change_code_hash"])
+            else:
+                raw_code = generate_code()
+                request.user.email_change_code_hash = make_password(raw_code)
+                request.user.save(update_fields=["pending_email", "email_change_code_hash"])
+                try:
+                    send_email_change_code(request.user, raw_code)
+                except Exception:
+                    messages.warning(
+                        request, f"Could not send the code to {request.user.pending_email}. Try again shortly."
+                    )
+                    return redirect("accounts:confirm_email_change")
+
+            messages.success(request, f"Code sent to {request.user.pending_email}.")
             return redirect("accounts:confirm_email_change")
     else:
         form = RequestEmailChangeForm(user=request.user)

@@ -1112,3 +1112,50 @@ class EmailChangeTests(TestCase):
         self.assertContains(response, "change your email again on")
         self.user.refresh_from_db()
         self.assertEqual(self.user.email, "new.address@example.com")
+
+    # Enumeration-oracle fix: an email already belonging to someone else must look
+    # identical, from the requester's side, to a genuinely free one - same redirect,
+    # same message, no code actually sent, no state that could later confirm.
+    def test_taken_email_redirects_same_as_free_email(self):
+        other = make_lecturer(username="emailchg_taken")
+        response = self.client.post(
+            reverse("accounts:request_email_change"), {"new_email": other.email}
+        )
+        self.assertRedirects(response, reverse("accounts:confirm_email_change"))
+
+    def test_taken_email_shows_same_success_message(self):
+        other = make_lecturer(username="emailchg_taken2")
+        response = self.client.post(
+            reverse("accounts:request_email_change"), {"new_email": other.email}, follow=True
+        )
+        self.assertContains(response, f"Code sent to {other.email}")
+
+    def test_taken_email_sends_no_code_and_stores_no_hash(self):
+        other = make_lecturer(username="emailchg_taken3")
+        self.client.post(reverse("accounts:request_email_change"), {"new_email": other.email})
+        self.assertEqual(len(mail.outbox), 0)
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.email_change_code_hash, "")
+
+    def test_taken_email_any_code_rejected_as_incorrect_not_missing(self):
+        other = make_lecturer(username="emailchg_taken4")
+        self.client.post(reverse("accounts:request_email_change"), {"new_email": other.email})
+        response = self._confirm("123456")
+        self.assertContains(response, "Incorrect code")
+        self.assertNotContains(response, "No code has been sent yet")
+
+    def test_taken_email_never_completes_no_cooldown_starts(self):
+        other = make_lecturer(username="emailchg_taken5")
+        self.client.post(reverse("accounts:request_email_change"), {"new_email": other.email})
+        self._confirm("123456")
+        self.user.refresh_from_db()
+        self.assertIsNone(self.user.email_changed_at)
+        self.assertNotEqual(self.user.email, other.email)
+
+    def test_own_current_email_still_shows_distinct_message(self):
+        # Not a leak - this only reveals info about the requester's own account,
+        # which they already know, so it's fine to keep this one specific.
+        response = self.client.post(
+            reverse("accounts:request_email_change"), {"new_email": self.user.email}
+        )
+        self.assertContains(response, "already your current email")

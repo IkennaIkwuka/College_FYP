@@ -150,11 +150,13 @@ class RequestEmailChangeForm(BootstrapFormMixin, forms.Form):
         super().__init__(*args, **kwargs)
 
     def clean_new_email(self):
+        # Deliberately does NOT check "is this email already taken by someone else" -
+        # any logged-in user could otherwise use this field to probe whether an
+        # arbitrary email belongs to another account. The view decides, invisibly to
+        # the requester, whether to actually send a code - same response either way.
         email = self.cleaned_data["new_email"].strip().lower()
         if email == self.user.email:
             raise forms.ValidationError("That's already your current email.")
-        if User.objects.exclude(pk=self.user.pk).filter(email__iexact=email).exists():
-            raise forms.ValidationError("A user with this email already exists.")
         return email
 
     def clean(self):
@@ -195,10 +197,16 @@ class EmailChangeCodeForm(BootstrapFormMixin, forms.Form):
         if user.is_email_change_locked:
             raise forms.ValidationError("Too many wrong attempts. Try again later.")
 
-        if not user.email_change_code_hash:
+        if not user.pending_email:
             raise forms.ValidationError('No code has been sent yet - click "Send code" first.')
 
-        if not user.check_email_change_code(code):
+        # No stored hash happens in exactly one case now: request_email_change
+        # silently skipped sending a real code because the target email was taken
+        # (enumeration-oracle fix). Any code typed here must be rejected the same
+        # way a genuine wrong guess would be - same message, same failed-attempt/
+        # lockout bookkeeping - so there's nothing here for a guesser to tell apart
+        # from a real wrong code.
+        if not user.email_change_code_hash or not user.check_email_change_code(code):
             user.register_failed_email_change_attempt()
             if user.is_email_change_locked:
                 raise forms.ValidationError("Too many wrong attempts. Try again later.")
