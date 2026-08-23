@@ -1,5 +1,5 @@
 venv/
-docs/
+docs/FYP_CONTEXT.md
 db.sqlite3
 .claude/
 __pycache__/

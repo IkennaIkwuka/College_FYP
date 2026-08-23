@@ -6,13 +6,21 @@ This repo used to just hold a placeholder; the project lived inside the LegacyUn
 
 ## Status
 
-Currently a bare Django skeleton. Being rebuilt from scratch after an earlier version (student records, course management, course registration, custom auth) was stripped out to restart the build more deliberately.
+In active development. Four apps are built and working: authentication/staff accounts, student records, course management/registration, and results/GPA-CGPA. See `todo.md` for what's still open, including gaps against the project's own SRS/SDD/HOD-brief documentation.
+
+## Apps
+
+- `accounts` — authentication, the custom `User` model, role groups (Student/Lecturer/HOD/Registrar/Bursar/Dean/Admin), staff account management, profile self-service
+- `students` — student profiles, faculties/departments, registrar-facing student CRUD, bulk CSV import
+- `courses` — course catalog, HOD-managed course CRUD, student course registration
+- `results` — lecturer/HOD result upload, GPA/CGPA computed on demand
 
 ## Tech stack
 
 - Python 3
 - Django 6.0.6
 - SQLite (development database)
+- Bootstrap 5 (frontend)
 
 ## Setup
 
@@ -28,11 +36,16 @@ python manage.py runserver
 
 ```
 .
-├── manage.py         # Django's command-line entry point
-├── lu_sims/          # Project-level config
-│   ├── settings.py   # App list, database, middleware, etc.
-│   ├── urls.py        # Top-level URL routing
-│   ├── wsgi.py        # Sync production entry point
-│   └── asgi.py        # Async production entry point
+├── manage.py          # Django's command-line entry point
+├── lu_sims/           # Project-level config
+│   ├── settings.py    # App list, database, middleware, etc.
+│   ├── urls.py         # Top-level URL routing
+│   ├── wsgi.py         # Sync production entry point
+│   └── asgi.py         # Async production entry point
+├── accounts/          # Auth, User model, roles, staff accounts
+├── students/          # Student profiles, faculties, departments
+├── courses/           # Course catalog and registration
+├── results/           # Results, GPA/CGPA
+├── todo.md            # Open work and known gaps
 └── requirements.txt   # Pinned dependencies
 ```
