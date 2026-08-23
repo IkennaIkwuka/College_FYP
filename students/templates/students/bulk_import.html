@@ -5,7 +5,10 @@
 {% block content %}
     <h1>Bulk Import Students</h1>
     <div class="alert alert-info">
-        CSV must include columns: <code>matric_number, first_name, last_name, email, department, level</code>.<br>
+        CSV must include columns: <code>matric_number, first_name, last_name, email, department, level, admission_type</code>.<br>
+        <code>admission_type</code> must be one of <code>UTME, DE, TRANSFER_INTRA, TRANSFER_INTER</code> - and
+        constrains <code>level</code>: UTME must be 100, Direct Entry (DE) must be 200 or 300, transfers are
+        unrestricted.<br>
         Optional columns: <code>date_of_birth, gender, phone_number, address</code>.<br>
         Every imported student's initial password is "{{ default_password }}".
     </div>

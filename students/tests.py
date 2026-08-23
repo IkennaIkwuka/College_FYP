@@ -142,9 +142,9 @@ class BulkImportTests(TestCase):
 
     def test_valid_csv_creates_students(self):
         content = (
-            "matric_number,first_name,last_name,email,department,level\n"
-            "2023/CSC/001,Amaka,Obi,amaka@example.com,Computer Science,200\n"
-            "2023/CSC/002,Chidi,Eze,chidi@example.com,Computer Science,200\n"
+            "matric_number,first_name,last_name,email,department,level,admission_type\n"
+            "2023/CSC/001,Amaka,Obi,amaka@example.com,Computer Science,200,DE\n"
+            "2023/CSC/002,Chidi,Eze,chidi@example.com,Computer Science,200,DE\n"
         )
         response = self._upload(content)
         self.assertRedirects(response, reverse("students:bulk_import"))
@@ -154,23 +154,50 @@ class BulkImportTests(TestCase):
         self.assertTrue(student.user.check_password(settings.DEFAULT_PASSWORD))
         self.assertTrue(student.user.must_change_password)
         self.assertTrue(student.user.groups.filter(name="Student").exists())
+        self.assertEqual(student.admission_type, "DE")
         self.assertEqual(len(mail.outbox), 0)
 
     def test_bad_department_creates_nothing(self):
         content = (
-            "matric_number,first_name,last_name,email,department,level\n"
-            "2023/CSC/003,Amaka,Obi,amaka2@example.com,Physics,200\n"
+            "matric_number,first_name,last_name,email,department,level,admission_type\n"
+            "2023/CSC/003,Amaka,Obi,amaka2@example.com,Physics,200,DE\n"
         )
         self._upload(content)
         self.assertEqual(StudentProfile.objects.count(), 0)
 
     def test_duplicate_matric_in_file_creates_nothing(self):
         content = (
-            "matric_number,first_name,last_name,email,department,level\n"
-            "2023/CSC/004,A,B,a@example.com,Computer Science,200\n"
-            "2023/CSC/004,C,D,c@example.com,Computer Science,200\n"
+            "matric_number,first_name,last_name,email,department,level,admission_type\n"
+            "2023/CSC/004,A,B,a@example.com,Computer Science,200,DE\n"
+            "2023/CSC/004,C,D,c@example.com,Computer Science,200,DE\n"
         )
         self._upload(content)
+        self.assertEqual(StudentProfile.objects.count(), 0)
+
+    def test_missing_admission_type_column_creates_nothing(self):
+        content = (
+            "matric_number,first_name,last_name,email,department,level\n"
+            "2023/CSC/005,Amaka,Obi,amaka5@example.com,Computer Science,100\n"
+        )
+        response = self._upload(content)
+        self.assertContains(response, "CSV must include columns")
+        self.assertEqual(StudentProfile.objects.count(), 0)
+
+    def test_invalid_admission_type_creates_nothing(self):
+        content = (
+            "matric_number,first_name,last_name,email,department,level,admission_type\n"
+            "2023/CSC/006,Amaka,Obi,amaka6@example.com,Computer Science,100,JAMB\n"
+        )
+        self._upload(content)
+        self.assertEqual(StudentProfile.objects.count(), 0)
+
+    def test_level_not_valid_for_admission_type_creates_nothing(self):
+        content = (
+            "matric_number,first_name,last_name,email,department,level,admission_type\n"
+            "2023/CSC/007,Amaka,Obi,amaka7@example.com,Computer Science,200,UTME\n"
+        )
+        response = self._upload(content)
+        self.assertContains(response, "not valid for admission_type")
         self.assertEqual(StudentProfile.objects.count(), 0)
 
 

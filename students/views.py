@@ -18,7 +18,7 @@ from .forms import BulkImportForm, DepartmentForm, FacultyForm, StudentAccountFo
 from .models import ADMISSION_TYPE_CHOICES, LEVEL_CHOICES, Department, Faculty, StudentProfile, entry_level_choices_for
 from .services import create_student_account, reset_student_pin, send_pin_email, sync_username_to_matric_number
 
-REQUIRED_COLUMNS = {"matric_number", "first_name", "last_name", "email", "department", "level"}
+REQUIRED_COLUMNS = {"matric_number", "first_name", "last_name", "email", "department", "level", "admission_type"}
 OPTIONAL_COLUMNS = {"date_of_birth", "gender", "phone_number", "address"}
 VALID_LEVELS = {str(level) for level, _ in LEVEL_CHOICES}
 
@@ -106,9 +106,23 @@ def _validate_row(row, seen_matrics, seen_emails):
     if not department:
         errors.append(f"department '{department_name}' does not exist")
 
+    admission_type = (row.get("admission_type") or "").strip().upper()
+    valid_admission_types = {code for code, _ in ADMISSION_TYPE_CHOICES}
+    if admission_type not in valid_admission_types:
+        errors.append(f"admission_type '{admission_type}' must be one of {sorted(valid_admission_types)}")
+
     level = (row.get("level") or "").strip()
     if level not in VALID_LEVELS:
         errors.append(f"level '{level}' must be one of {sorted(VALID_LEVELS)}")
+    elif admission_type in valid_admission_types:
+        # Same rule the interactive Add/Edit Student forms enforce - UTME is always
+        # 100L, Direct Entry only 200L/300L, transfer unrestricted.
+        allowed_levels = {str(value) for value, _ in entry_level_choices_for(admission_type)}
+        if level not in allowed_levels:
+            errors.append(
+                f"level '{level}' is not valid for admission_type '{admission_type}' "
+                f"(allowed: {sorted(allowed_levels)})"
+            )
 
     return errors
 
@@ -162,6 +176,7 @@ def bulk_import(request):
                                 email=row["email"].strip(),
                                 department=department,
                                 entry_level=int(row["level"]),
+                                admission_type=row["admission_type"].strip().upper(),
                                 **optional_fields,
                             )
 
