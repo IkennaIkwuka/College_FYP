@@ -11,7 +11,6 @@ chronologically at the bottom.
 - [ ] Transcript request/approval workflow (SRS FR-STU-05, FR-REG-02/03) - student submits a request, Registrar approves/rejects, then generates the document. Not built. The Pilot Proposal already names this as the pilot's headline feature to the HOD, so it's represented as working when it isn't.
 - [ ] Audit logging (SRS FR-LOG-01-05) - log every login attempt, every create/update/delete on academic/financial records, every denied access attempt; immutable; viewable only by IT Admin/Super Admin. Not built. The Pilot Proposal already states to the HOD that "every action taken on the system is logged."
 - [ ] Attendance Management module - one of the HOD Project Brief's own four committed modules (Auth/RBAC, Student Info, Course Registration, Attendance). Zero code anywhere. Undelivered against the project's own submitted scope.
-- [ ] Email-existence enumeration oracle in RequestEmailChangeForm/StaffAccountForm/StudentAccountForm clean_email
 
 ## High
 
@@ -36,6 +35,7 @@ chronologically at the bottom.
 - [ ] Memory hygiene: the `project_fyp_current_state_*` chain is now 7 files deep (15/17/18/20/21/22/23, the largest ~24KB) - consider consolidating the older ones (15/17/18/20/21) into one condensed historical file now that a full audit has to read all of them, and now that the chain has already produced one real contradiction between what an older snapshot said and what later ones said (see Done section - accounts/students PIN import).
 - [ ] Dev-workflow: no CI configured (no GitHub Actions or equivalent) - `python manage.py test` only runs when someone remembers to run it locally.
 - [ ] Dev-workflow: no linter/formatter configured (no flake8/ruff/black) - style is currently whatever each session happened to write.
+- [ ] Dev-workflow: no type checker configured or ever run against project code (no mypy/pyright) - `pyrightconfig.json` added 2026-08-23 scopes Pylance to project code instead of `venv/site-packages`, but nobody's actually run a type-checking pass yet to see what it surfaces.
 
 ## Low
 
@@ -89,3 +89,4 @@ Stretch / likely out of FYP scope, noted for awareness:
 - [x] accounts/views.py imports from students (PIN flow) - fixed 2026-08-23: send_pin_code moved to lu_sims/views.py (the existing accounts+students composition layer, same pattern as profile/profile_edit), accounts/urls.py imports it from there. URL name/path unchanged, 218 tests still green.
 - [x] Contradiction across memory on the accounts/students PIN-flow import - resolved 2026-08-23, see the entry above and `project_fyp_current_state_2026_08_23.md`. Fixed in code, not just documented.
 - [x] Dependency/migration drift check (`/deep-audit`, 2026-08-23) - clean. `requirements.txt` matches actual imports (no unused/undeclared deps), `manage.py makemigrations --check --dry-run` reports no changes detected.
+- [x] Email-existence enumeration oracle - fixed 2026-08-23, scoped to `RequestEmailChangeForm` only (the one self-service form reachable by any logged-in user). `StaffAccountForm`/`StaffEditForm`/`StudentAccountForm`/`StudentEditForm` deliberately left as-is - they're already `registrar_required`/`admin_required`-gated, so "email already taken" there is legitimate admin UX (prevents duplicate accounts), not an oracle exposed to a low-trust actor. Fix: `clean_new_email` no longer checks whether the email is taken; the view always shows the same "Code sent" message and redirect regardless, only actually generating/sending a real code when the address is genuinely free. Also closed a residual leak in `EmailChangeCodeForm.clean_code` (a missing code-hash used to say "No code has been sent yet" - distinguishable from "Incorrect code" - now both cases behave identically, same lockout bookkeeping). 6 new tests in `accounts/tests.py:EmailChangeTests`, full suite 224 passing.

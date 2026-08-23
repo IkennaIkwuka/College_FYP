@@ -1,0 +1,6 @@
+{
+  "include": ["accounts", "courses", "lu_sims", "results", "students", "manage.py"],
+  "exclude": ["**/migrations", "**/__pycache__", "venv"],
+  "venvPath": ".",
+  "venv": "venv"
+}
