@@ -46,6 +46,7 @@ python manage.py runserver
 ├── students/          # Student profiles, faculties, departments
 ├── courses/           # Course catalog and registration
 ├── results/           # Results, GPA/CGPA
+├── docs/              # SRS, SDD, HOD brief, pilot proposal, seminar report/presentation
 ├── todo.md            # Open work and known gaps
 └── requirements.txt   # Pinned dependencies
 ```
