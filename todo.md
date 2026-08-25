@@ -20,6 +20,7 @@ chronologically at the bottom.
 
 ## Medium
 
+- [ ] `pyflakes` (3.4.0) is installed in the project venv but absent from `requirements.txt` and not wired into any documented workflow (no lint step, no CI, not mentioned in README) - either declare it as a dev dependency and give it a real step (closing part of the "no linter configured" gap below), or it's stray env drift and should be removed. Confirmed via `/deep-audit` 2026-08-25: `pip freeze` lists it, `requirements.txt` doesn't.
 - [ ] Bursar / Fees module - role and dashboard exist, no functional fee features built.
 - [ ] Course registration approval workflow - currently pure self-service, no Advisor/HOD/Faculty Board approval step, no unit-load exception path, Dean has no approval capability.
 - [ ] Carryover-student handling (unblocked now that Results system exists) - no tracking of failed/repeated courses, no NUC max-duration (~1.5x programme length) withdrawal enforcement.
@@ -35,7 +36,7 @@ chronologically at the bottom.
 
 ## Low
 
-- [ ] Minor cleanup: unnecessary |safe on password help_text (3 templates), CSV bulk_import has no size/encoding guard, unused test vars in students/tests.py:248 and courses/tests.py:243.
+- [ ] Minor cleanup: unnecessary |safe on password help_text (3 templates), CSV bulk_import has no size/encoding guard, unused test vars now at students/tests.py:343 and courses/tests.py:268 (line numbers drifted from earlier entry as files grew - re-confirmed via `pyflakes` 2026-08-25), plus a newly-found unused `django.conf.settings` import at results/tests.py:1.
 - [ ] Course-code semester-parity rule (odd/even = 1st/2nd sem) has no confirmed NUC source - unverified project convention, not urgent.
 
 ## Decisions (settled, don't relitigate without new information)
