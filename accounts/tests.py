@@ -90,6 +90,14 @@ class LoginTests(TestCase):
         User.objects.create_user(username="j.smith_1", email="jsmith@example.com", password="pass12345")
         self.assertTrue(self.client.login(username="j.smith_1", password="pass12345"))
 
+    def test_already_logged_in_user_visiting_login_page_gets_redirected(self):
+        # Previously the view re-rendered the login form for an authenticated
+        # user instead of bouncing them to the dashboard.
+        self.client.login(username=self.profile.user.username, password=settings.DEFAULT_PASSWORD)
+        response = self.client.get(reverse("login"))
+        self.assertEqual(response.status_code, 302)
+        self.assertNotEqual(response.url, reverse("login"))
+
 
 class LoginViewFormTests(TestCase):
     """Exercises the actual login view/form (POST to accounts:login), not the

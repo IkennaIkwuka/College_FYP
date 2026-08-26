@@ -354,6 +354,7 @@ def student_dashboard(request):
 class PortalLoginView(auth_views.LoginView):
     template_name = "accounts/login.html"
     authentication_form = LoginForm
+    redirect_authenticated_user = True
 
 
 class ForcedPasswordChangeView(auth_views.PasswordChangeView):

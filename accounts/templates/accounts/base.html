@@ -68,7 +68,7 @@
                             </li>
                         </ul>
                     </div>
-                {% else %}
+                {% elif request.resolver_match.url_name != 'login' %}
                     <a class="btn btn-outline-light btn-sm" href="{% url 'login' %}">Log in</a>
                 {% endif %}
             </div>
