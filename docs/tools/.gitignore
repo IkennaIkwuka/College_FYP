@@ -1,0 +1,6 @@
+.venv/
+__pycache__/
+fig_*.png
+fig_*.html
+_FYP_Report_*.md
+_FYP_Report_*.html

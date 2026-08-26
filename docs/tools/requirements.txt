@@ -1,0 +1,5 @@
+markdown
+requests
+websocket-client
+pypandoc_binary
+python-docx
