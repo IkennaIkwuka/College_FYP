@@ -20,6 +20,7 @@
                         <a class="btn btn-outline-light btn-sm me-2" href="{% url 'accounts:manage_staff' %}">Manage Staff</a>
                         <a class="btn btn-outline-light btn-sm me-2" href="{% url 'students:manage_faculties' %}">Manage Faculties</a>
                         <a class="btn btn-outline-light btn-sm me-2" href="{% url 'students:manage_departments' %}">Manage Departments</a>
+                        <a class="btn btn-outline-light btn-sm me-2" href="{% url 'audit:log_list' %}">Audit Log</a>
                     {% endif %}
                     {% if user.is_student %}
                         <a class="btn btn-outline-light btn-sm me-2" href="{% url 'courses:register' %}">Register for Courses</a>

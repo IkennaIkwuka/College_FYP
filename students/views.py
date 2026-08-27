@@ -3,6 +3,8 @@ import io
 
 from accounts.decorators import admin_required, registrar_required, student_required
 from accounts.forms import PreferredUsernameForm
+from audit.models import AuditLog
+from audit.services import log_action
 from django.contrib import messages
 from django.core.paginator import Paginator
 from django.db import transaction
@@ -48,6 +50,7 @@ def register(request):
                 department=form.cleaned_data["department"],
                 entry_level=form.cleaned_data["level"],
                 admission_type=form.cleaned_data["admission_type"],
+                actor=request.user,
             )
             messages.success(
                 request,
@@ -180,6 +183,7 @@ def bulk_import(request):
                                 department=department,
                                 entry_level=int(row["level"]),
                                 admission_type=row["admission_type"].strip().upper(),
+                                actor=request.user,
                                 **optional_fields,
                             )
 
@@ -261,6 +265,10 @@ def faculty_add(request):
         form = FacultyForm(request.POST)
         if form.is_valid():
             faculty = form.save()
+            log_action(
+                action=AuditLog.CREATE, actor=request.user,
+                target_description=f"Faculty {faculty.name}", request=request,
+            )
             messages.success(request, f"Added {faculty.name}.")
             return redirect("students:manage_faculties")
     else:
@@ -283,6 +291,10 @@ def faculty_edit(request, pk):
         form = FacultyForm(request.POST, instance=faculty)
         if form.is_valid():
             form.save()
+            log_action(
+                action=AuditLog.UPDATE, actor=request.user,
+                target_description=f"Faculty {faculty.name}", request=request,
+            )
             messages.success(request, f"Updated {faculty.name}.")
             return redirect("students:faculty_detail", pk=faculty.id)
     else:
@@ -303,6 +315,10 @@ def department_add(request):
         form = DepartmentForm(request.POST)
         if form.is_valid():
             department = form.save()
+            log_action(
+                action=AuditLog.CREATE, actor=request.user,
+                target_description=f"Department {department.name}", request=request,
+            )
             messages.success(request, f"Added {department.name}.")
             return redirect("students:manage_departments")
     else:
@@ -325,6 +341,10 @@ def department_edit(request, pk):
         form = DepartmentForm(request.POST, instance=department)
         if form.is_valid():
             form.save()
+            log_action(
+                action=AuditLog.UPDATE, actor=request.user,
+                target_description=f"Department {department.name}", request=request,
+            )
             messages.success(request, f"Updated {department.name}.")
             return redirect("students:department_detail", pk=department.id)
     else:

@@ -1,5 +1,7 @@
 import re
 
+from audit.models import AuditLog
+from audit.services import log_action
 from django.contrib.auth import get_user_model
 from django.contrib.auth.backends import ModelBackend
 from django.db.models import Q
@@ -40,14 +42,26 @@ class LenientUsernameBackend(ModelBackend):
             # password even when there's no matching user, so response time
             # doesn't leak whether a username exists.
             UserModel().set_password(password)
+            log_action(
+                action=AuditLog.LOGIN_FAILED, actor=None, actor_username=raw,
+                reason="unknown username", request=request,
+            )
             return None
         except UserModel.MultipleObjectsReturned:
+            log_action(
+                action=AuditLog.LOGIN_FAILED, actor=None, actor_username=raw,
+                reason="ambiguous username match", request=request,
+            )
             return None
 
         # A student who hasn't finished first-login setup skips the password check
         # entirely - see User.skips_first_login_password for why this is safe.
         # Whatever was typed (blank or otherwise) is irrelevant for this branch.
         if user.skips_first_login_password:
+            log_action(
+                action=AuditLog.LOGIN_SUCCESS, actor=user,
+                reason="passwordless first login", request=request,
+            )
             return user
 
         # FR-AUTH-05: lock out after settings.LOGIN_MAX_ATTEMPTS consecutive wrong
@@ -58,15 +72,28 @@ class LenientUsernameBackend(ModelBackend):
             user.reset_login_attempts()
 
         if user.is_login_locked:
+            log_action(
+                action=AuditLog.LOGIN_FAILED, actor=user,
+                reason="account locked", request=request,
+            )
             return None
 
         if user.check_password(password):
             if self.user_can_authenticate(user):
                 user.reset_login_attempts()
+                log_action(action=AuditLog.LOGIN_SUCCESS, actor=user, request=request)
                 return user
             # Correct password but inactive account - not a wrong guess, don't
             # count it against the lockout.
+            log_action(
+                action=AuditLog.LOGIN_FAILED, actor=user,
+                reason="inactive account", request=request,
+            )
             return None
 
         user.register_failed_login_attempt()
+        log_action(
+            action=AuditLog.LOGIN_FAILED, actor=user,
+            reason="incorrect password", request=request,
+        )
         return None

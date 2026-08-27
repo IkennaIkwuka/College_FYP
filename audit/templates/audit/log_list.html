@@ -1,0 +1,70 @@
+{% extends "accounts/base.html" %}
+
+{% block title %}Audit Log - LU-SIMS{% endblock %}
+
+{% block content %}
+    <h1>Audit Log</h1>
+    <form method="get" class="mb-4 d-flex flex-wrap gap-2 align-items-end">
+        <input type="text" name="q" value="{{ query }}" placeholder="Actor, target, or reason" class="form-control" style="max-width: 300px;">
+        <select name="action" class="form-select" style="max-width: 220px;" onchange="this.form.submit()">
+            <option value="">All actions</option>
+            {% for value, label in actions %}
+                <option value="{{ value }}" {% if selected_action == value %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+        </select>
+        <button type="submit" class="btn btn-outline-secondary">Filter</button>
+    </form>
+
+    {% if logs %}
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>When</th>
+                    <th>Actor</th>
+                    <th>Action</th>
+                    <th>Target</th>
+                    <th>Reason</th>
+                    <th>Path</th>
+                    <th>IP</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for log in logs %}
+                    <tr>
+                        <td>{{ log.created_at }}</td>
+                        <td>{{ log.actor_username|default:"—" }}</td>
+                        <td>{{ log.get_action_display }}</td>
+                        <td>{{ log.target_description }}</td>
+                        <td>{{ log.reason }}</td>
+                        <td>{{ log.request_path }}</td>
+                        <td>{{ log.ip_address|default:"—" }}</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        {% if logs.has_other_pages %}
+            <nav>
+                <ul class="pagination">
+                    <li class="page-item {% if not logs.has_previous %}disabled{% endif %}">
+                        {% if logs.has_previous %}
+                            <a class="page-link" href="?{{ querystring }}{% if querystring %}&{% endif %}page={{ logs.previous_page_number }}">Previous</a>
+                        {% else %}
+                            <span class="page-link">Previous</span>
+                        {% endif %}
+                    </li>
+                    <li class="page-item disabled"><span class="page-link">Page {{ logs.number }} of {{ logs.paginator.num_pages }}</span></li>
+                    <li class="page-item {% if not logs.has_next %}disabled{% endif %}">
+                        {% if logs.has_next %}
+                            <a class="page-link" href="?{{ querystring }}{% if querystring %}&{% endif %}page={{ logs.next_page_number }}">Next</a>
+                        {% else %}
+                            <span class="page-link">Next</span>
+                        {% endif %}
+                    </li>
+                </ul>
+            </nav>
+        {% endif %}
+    {% else %}
+        <p class="text-muted">No audit log entries{% if query or selected_action %} matching these filters{% endif %}.</p>
+    {% endif %}
+{% endblock %}

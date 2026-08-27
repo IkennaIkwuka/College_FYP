@@ -1,6 +1,8 @@
 import secrets
 
 from accounts.models import STUDENT_GROUP, User
+from audit.models import AuditLog
+from audit.services import log_action
 from django.conf import settings
 from django.contrib.auth.models import Group
 from django.core.mail import send_mail
@@ -65,11 +67,15 @@ def sync_username_to_matric_number(profile):
     return False
 
 
-def create_student_account(*, matric_number, first_name, last_name, email, department, entry_level, **optional_fields):
+def create_student_account(*, matric_number, first_name, last_name, email, department, entry_level, actor=None, **optional_fields):
     """Creates the User+StudentProfile, returning the profile.
 
     No PIN is issued here - the student requests one themselves at first login
     (accounts:send_pin_code), so it's never sitting unused in an old email.
+
+    actor: who's creating this account (a Registrar, via register/bulk_import) -
+    logged for FR-LOG-02. Optional so nothing outside those two real call sites
+    breaks if this is ever called without one.
     """
     matric_number = format_academic_id(matric_number)
     username = derive_student_username(matric_number)
@@ -98,6 +104,10 @@ def create_student_account(*, matric_number, first_name, last_name, email, depar
         entry_level=entry_level,
         entry_session=settings.CURRENT_SESSION,
         **optional_fields,
+    )
+    log_action(
+        action=AuditLog.CREATE, actor=actor,
+        target_description=f"StudentProfile {profile.matric_number} ({user.get_full_name()})",
     )
 
     return profile

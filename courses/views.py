@@ -1,3 +1,5 @@
+from audit.models import AuditLog
+from audit.services import log_action
 from django.conf import settings
 from django.contrib import messages
 from django.core.paginator import Paginator
@@ -57,6 +59,11 @@ def register(request):
                     )
                     registration.full_clean()
                     registration.save()
+                    log_action(
+                        action=AuditLog.CREATE, actor=request.user,
+                        target_description=f"CourseRegistration {profile.matric_number} → {course.code} ({session} {semester})",
+                        request=request,
+                    )
                 messages.success(request, f"Registered for {len(selected_courses)} course(s).")
                 if total_units < settings.MIN_SEMESTER_UNITS:
                     messages.warning(
@@ -375,6 +382,10 @@ def course_add(request):
             course = form.save(commit=False)
             course.department = department
             course.save()
+            log_action(
+                action=AuditLog.CREATE, actor=request.user,
+                target_description=f"Course {course.code}", request=request,
+            )
             messages.success(request, f"Added {course.code}.")
             return redirect("courses:manage_courses")
     else:
@@ -399,6 +410,10 @@ def course_edit(request, pk):
         form = CourseForm(request.POST, instance=course)
         if form.is_valid() and not _course_level_exceeds_duration(form, department):
             form.save()
+            log_action(
+                action=AuditLog.UPDATE, actor=request.user,
+                target_description=f"Course {course.code}", request=request,
+            )
             messages.success(request, f"Updated {course.code}.")
             return redirect("courses:course_detail", pk=course.id)
     else:
@@ -486,5 +501,10 @@ def course_toggle_active(request, pk):
     if request.method == "POST":
         course.is_active = not course.is_active
         course.save(update_fields=["is_active"])
+        log_action(
+            action=AuditLog.UPDATE, actor=request.user,
+            target_description=f"Course {course.code}",
+            reason=f"is_active set to {course.is_active}", request=request,
+        )
         messages.success(request, f"{course.code} is now {'active' if course.is_active else 'inactive'}.")
     return redirect("courses:manage_courses")

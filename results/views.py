@@ -1,3 +1,5 @@
+from audit.models import AuditLog
+from audit.services import log_action
 from django.conf import settings
 from django.contrib import messages
 from django.core.exceptions import PermissionDenied
@@ -63,6 +65,8 @@ def course_results_entry(request, pk):
         messages.error(request, "Results entry is only open for the current semester's courses.")
         return redirect(f"{request.path}?session={session}")
 
+    roster_by_id = {r.id: r for r in roster}
+
     if request.method == "POST":
         formset = ScoreEntryFormSet(request.POST)
         if formset.is_valid():
@@ -80,9 +84,16 @@ def course_results_entry(request, pk):
                 if Result.objects.filter(registration_id=registration_id).exists() and not is_hod_here:
                     locked += 1
                     continue
-                Result.objects.update_or_create(
+                obj, created = Result.objects.update_or_create(
                     registration_id=registration_id,
                     defaults={"score": score, "entered_by": request.user},
+                )
+                registration = roster_by_id[registration_id]
+                log_action(
+                    action=AuditLog.CREATE if created else AuditLog.UPDATE,
+                    actor=request.user,
+                    target_description=f"Result {registration.student.matric_number} - {course.code} ({session})",
+                    request=request,
                 )
                 updated += 1
             if locked:

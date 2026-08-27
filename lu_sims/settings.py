@@ -53,6 +53,7 @@ INSTALLED_APPS = [
     'students',
     'courses',
     'results',
+    'audit',
 ]
 
 AUTH_USER_MODEL = 'accounts.User'
@@ -160,6 +161,7 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'audit.middleware.AccessDeniedLoggingMiddleware',
     'accounts.middleware.ForcePasswordChangeMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
