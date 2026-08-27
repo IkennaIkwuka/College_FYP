@@ -3,3 +3,6 @@ requests
 websocket-client
 pypandoc_binary
 python-docx
+pypdf
+reportlab
+beautifulsoup4
